@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import FileUpload from '@/components/ui/file-upload';
 
 const recentReturns = [
   {
@@ -57,12 +58,10 @@ export default function CustomerPortal() {
   const [step, setStep] = useState(1);
   const [itemType, setItemType] = useState('');
   const [destination, setDestination] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-    }
+  const handleFilesUploaded = (files: any[]) => {
+    setUploadedFiles(files);
   };
 
   const handleSubmit = () => {
@@ -155,29 +154,13 @@ export default function CustomerPortal() {
                   <div className="space-y-4">
                     <div>
                       <Label>Upload Photos</Label>
-                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                        <input
-                          type="file"
-                          multiple
-                          accept="image/*"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                          id="file-upload"
-                        />
-                        <label htmlFor="file-upload" className="cursor-pointer">
-                          <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-sm text-muted-foreground">
-                            Click to upload photos or drag and drop
-                          </p>
-                        </label>
-                      </div>
-                      {files.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-sm text-muted-foreground">
-                            {files.length} file(s) selected
-                          </p>
-                        </div>
-                      )}
+                      <FileUpload
+                        onFilesUploaded={handleFilesUploaded}
+                        maxFiles={5}
+                        maxFileSize={10}
+                        acceptedTypes={['image/*']}
+                        folder="items"
+                      />
                     </div>
                     <div className="flex gap-4">
                       <Button variant="outline" onClick={() => setStep(1)} className="flex-1">

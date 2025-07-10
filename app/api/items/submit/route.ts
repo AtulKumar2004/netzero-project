@@ -3,6 +3,7 @@ import { getDatabase } from '@/lib/mongodb';
 import { Item } from '@/lib/schemas/item';
 import { ObjectId } from 'mongodb';
 import { verifyToken } from '@/lib/auth';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,15 +45,32 @@ export async function POST(request: NextRequest) {
       contactPhone: formData.get('contactPhone') as string,
     };
 
-    // Handle image uploads (in production, you'd upload to cloud storage)
-    const images: string[] = [];
+    // Handle image uploads to Cloudinary
+    const images: { url: string; publicId: string }[] = [];
     const imageFiles = formData.getAll('images') as File[];
     
     for (const file of imageFiles) {
       if (file.size > 0) {
-        // In production, upload to AWS S3, Cloudinary, etc.
-        // For now, we'll use placeholder URLs
-        images.push(`/uploads/${Date.now()}-${file.name}`);
+        try {
+          // Convert file to buffer
+          const bytes = await file.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+          const dataUrl = `data:${file.type};base64,${buffer.toString('base64')}`;
+
+          // Upload to Cloudinary
+          const result = await uploadToCloudinary(dataUrl, {
+            folder: 'reloop/items',
+            public_id: `item_${user.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          });
+
+          images.push({
+            url: result.secure_url,
+            publicId: result.public_id,
+          });
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Continue with other images if one fails
+        }
       }
     }
 
@@ -78,7 +96,8 @@ export async function POST(request: NextRequest) {
       category,
       condition: condition as Item['condition'],
       originalPrice: originalPrice ? parseInt(originalPrice) * 100 : undefined, // convert to cents
-      images,
+      images: images.map(img => img.url),
+      imagePublicIds: images.map(img => img.publicId),
       status: 'submitted',
       destination: destination as Item['destination'],
       pickupAddress,

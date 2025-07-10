@@ -27,7 +27,9 @@ export interface Item {
   
   // Images and Documentation
   images: string[]; // URLs to uploaded images
+  imagePublicIds?: string[]; // Cloudinary public IDs for deletion
   receiptImage?: string;
+  receiptPublicId?: string;
   
   // Pricing and Value
   originalPrice?: number; // in cents
