@@ -119,7 +119,11 @@ export default function RegisterPage() {
 
       if (response.ok) {
         toast.success('Account created successfully!');
-        router.push('/portal');
+        // Redirect based on role
+        const redirectPath = data.user.role === 'customer' ? '/portal/customer' : 
+                           data.user.role === 'retailer' ? '/portal/retailer' : 
+                           data.user.role === 'ngo' ? '/portal/ngo' : '/portal';
+        router.push(redirectPath);
         router.refresh();
       } else {
         if (data.details && Array.isArray(data.details)) {
@@ -129,6 +133,7 @@ export default function RegisterPage() {
         }
       }
     } catch (error) {
+      console.error('Registration error:', error);
       setErrors(['Network error. Please try again.']);
     } finally {
       setLoading(false);

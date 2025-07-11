@@ -51,12 +51,18 @@ export default function LoginPage() {
 
       if (response.ok) {
         toast.success('Login successful!');
-        router.push(redirectTo);
+        // Redirect based on role or redirect parameter
+        const redirectPath = redirectTo !== '/portal' ? redirectTo :
+                           data.user.role === 'customer' ? '/portal/customer' : 
+                           data.user.role === 'retailer' ? '/portal/retailer' : 
+                           data.user.role === 'ngo' ? '/portal/ngo' : '/portal';
+        router.push(redirectPath);
         router.refresh();
       } else {
         setError(data.error || 'Login failed');
       }
     } catch (error) {
+      console.error('Login error:', error);
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
