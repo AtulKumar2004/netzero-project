@@ -24,7 +24,7 @@ export default function Hero() {
                 <Button size="lg" asChild>
                   <Link href="/auth/register">Get Started</Link>
                 </Button>
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-primary" asChild>
+                <Button size="lg" variant="outline" className="border-white text-primary" asChild>
                   <Link href="/marketplace">Browse Marketplace</Link>
                 </Button>
               </div>
