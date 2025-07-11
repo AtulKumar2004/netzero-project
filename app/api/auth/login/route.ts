@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
+import connectDB from '@/lib/mongoose';
+import User from '@/lib/models/User';
 import jwt from 'jsonwebtoken';
-import { getDatabase } from '@/lib/mongodb';
-import { User } from '@/lib/schemas/user';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function POST(request: NextRequest) {
   try {
+    await connectDB();
+
     const { email, password } = await request.json();
 
     if (!email || !password) {
@@ -17,23 +18,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = await getDatabase();
-    const usersCollection = db.collection<User>('users');
-
-    // Find user
-    const user = await usersCollection.findOne({ email });
+    // Find user and include password for comparison
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
     // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
@@ -41,10 +39,14 @@ export async function POST(request: NextRequest) {
     // Check if user is active
     if (!user.isActive) {
       return NextResponse.json(
-        { error: 'Account is deactivated' },
+        { error: 'Account is deactivated. Please contact support.' },
         { status: 403 }
       );
     }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
 
     // Generate JWT token
     const token = jwt.sign(
@@ -58,12 +60,30 @@ export async function POST(request: NextRequest) {
     );
 
     // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
+    const userResponse = {
+      _id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      fullName: user.fullName,
+      role: user.role,
+      phone: user.phone,
+      address: user.address,
+      profileImage: user.profileImage,
+      isVerified: user.isVerified,
+      isActive: user.isActive,
+      stats: user.stats,
+      preferences: user.preferences,
+      lastLogin: user.lastLogin,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
 
     const response = NextResponse.json(
       {
+        success: true,
         message: 'Login successful',
-        user: userWithoutPassword,
+        user: userResponse,
         token,
       },
       { status: 200 }
@@ -75,10 +95,11 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/'
     });
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Login error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

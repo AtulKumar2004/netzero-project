@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDatabase } from '@/lib/mongodb';
-import { Item } from '@/lib/schemas/item';
-import { ObjectId } from 'mongodb';
+import connectDB from '@/lib/mongoose';
+import Item from '@/lib/models/Item';
+import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/auth';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 
 export async function POST(request: NextRequest) {
   try {
+    await connectDB();
+
     const token = request.cookies.get('auth-token')?.value;
     const user = await verifyToken(token);
     
@@ -82,24 +84,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = await getDatabase();
-    const itemsCollection = db.collection<Item>('items');
-
     // Calculate impact metrics based on category and condition
     const impactMetrics = calculateImpactMetrics(category, condition);
 
-    const newItem: Omit<Item, '_id'> = {
-      submitterId: new ObjectId(user.userId),
+    const itemData = {
+      submitterId: user.userId,
       title,
       description,
       brand: brand || undefined,
       category,
-      condition: condition as Item['condition'],
+      condition,
       originalPrice: originalPrice ? parseInt(originalPrice) * 100 : undefined, // convert to cents
       images: images.map(img => img.url),
       imagePublicIds: images.map(img => img.publicId),
       status: 'submitted',
-      destination: destination as Item['destination'],
+      destination,
       pickupAddress,
       pickupPreferences,
       impactMetrics,
@@ -108,16 +107,14 @@ export async function POST(request: NextRequest) {
         views: 0,
         favorites: 0,
       } : undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     };
 
-    const result = await itemsCollection.insertOne(newItem);
+    const newItem = new Item(itemData);
+    await newItem.save();
 
     // Update user stats
-    const usersCollection = db.collection('users');
-    await usersCollection.updateOne(
-      { _id: new ObjectId(user.userId) },
+    await User.findByIdAndUpdate(
+      user.userId,
       { 
         $inc: { 
           'stats.itemsSubmitted': 1,
@@ -129,8 +126,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
+        success: true,
         message: 'Item submitted successfully',
-        item: { ...newItem, _id: result.insertedId },
+        item: newItem,
       },
       { status: 201 }
     );

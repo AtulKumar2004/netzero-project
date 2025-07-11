@@ -23,3 +23,11 @@ export async function verifyToken(token?: string): Promise<TokenPayload | null> 
 export function generateToken(payload: TokenPayload): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
+
+export function generateResetToken(): string {
+  return jwt.sign({ type: 'reset' }, JWT_SECRET, { expiresIn: '1h' });
+}
+
+export function generateVerificationToken(): string {
+  return jwt.sign({ type: 'verification' }, JWT_SECRET, { expiresIn: '24h' });
+}
