@@ -24,7 +24,7 @@ interface FileUploadProps {
   className?: string;
 }
 
-interface UploadedFile {
+export interface UploadedFile {
   url: string;
   publicId: string;
   width?: number;

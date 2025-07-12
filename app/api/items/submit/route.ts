@@ -1,27 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongoose';
-import Item from '@/lib/models/Item';
-import User from '@/lib/models/User';
+import cloudinary from '@/lib/cloudinary';
 import { verifyToken } from '@/lib/auth';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { connectDB } from '@/lib/mongoose';
+import { Item } from '@/lib/schemas/item';
+import { User } from '@/lib/schemas/user';
+import { ObjectId } from 'mongodb';
 
 export async function POST(request: NextRequest) {
-  try {
-    await connectDB();
+  await connectDB();
 
+  try {
     const token = request.cookies.get('auth-token')?.value;
     const user = await verifyToken(token);
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!ObjectId.isValid(user.userId)) return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
 
     const formData = await request.formData();
-    
-    // Extract form data
+
+    // Get all text fields
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
     const brand = formData.get('brand') as string;
@@ -29,8 +25,7 @@ export async function POST(request: NextRequest) {
     const condition = formData.get('condition') as string;
     const destination = formData.get('destination') as string;
     const originalPrice = formData.get('originalPrice') as string;
-    
-    // Pickup address
+
     const pickupAddress = {
       street: formData.get('street') as string,
       city: formData.get('city') as string,
@@ -39,7 +34,6 @@ export async function POST(request: NextRequest) {
       country: formData.get('country') as string || 'US',
     };
 
-    // Pickup preferences
     const pickupPreferences = {
       preferredDate: formData.get('preferredDate') ? new Date(formData.get('preferredDate') as string) : undefined,
       preferredTimeSlot: formData.get('preferredTimeSlot') as string,
@@ -47,81 +41,67 @@ export async function POST(request: NextRequest) {
       contactPhone: formData.get('contactPhone') as string,
     };
 
-    // Handle image uploads to Cloudinary
-    const images: { url: string; publicId: string }[] = [];
+    // ✅ Handle file uploads
     const imageFiles = formData.getAll('images') as File[];
-    
+    if (imageFiles.length < 1 || imageFiles.length > 10) {
+      return NextResponse.json({ error: 'Must upload 1–10 images.' }, { status: 400 });
+    }
+
+    const uploadedImages = [];
+
     for (const file of imageFiles) {
-      if (file.size > 0) {
-        try {
-          // Convert file to buffer
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const dataUrl = `data:${file.type};base64,${buffer.toString('base64')}`;
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64String = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-          // Upload to Cloudinary
-          const result = await uploadToCloudinary(dataUrl, {
-            folder: 'reloop/items',
-            public_id: `item_${user.userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-          });
+      const uploaded = await cloudinary.uploader.upload(base64String, {
+        folder: 'items',
+      });
 
-          images.push({
-            url: result.secure_url,
-            publicId: result.public_id,
-          });
-        } catch (uploadError) {
-          console.error('Image upload error:', uploadError);
-          // Continue with other images if one fails
-        }
-      }
+      uploadedImages.push({
+        url: uploaded.secure_url,
+        publicId: uploaded.public_id,
+        format: uploaded.format,
+        width: uploaded.width,
+        height: uploaded.height,
+        name: file.name,
+        size: file.size,
+      });
     }
 
-    // Validation
-    if (!title || !description || !category || !condition || !destination) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Calculate impact metrics based on category and condition
+    // ✅ Create item
     const impactMetrics = calculateImpactMetrics(category, condition);
 
     const itemData = {
-      submitterId: user.userId,
+      submitterId: new ObjectId(user.userId),
       title,
       description,
       brand: brand || undefined,
       category,
       condition,
-      originalPrice: originalPrice ? parseInt(originalPrice) * 100 : undefined, // convert to cents
-      images: images.map(img => img.url),
-      imagePublicIds: images.map(img => img.publicId),
+      originalPrice: originalPrice ? parseInt(originalPrice) * 100 : undefined,
+      images: uploadedImages,
       status: 'submitted',
       destination,
       pickupAddress,
       pickupPreferences,
       impactMetrics,
-      marketplaceData: destination === 'resale' ? {
-        isListed: false,
-        views: 0,
-        favorites: 0,
-      } : undefined,
+      marketplaceData: destination === 'resale' ? { isListed: false, views: 0, favorites: 0 } : undefined,
     };
 
     const newItem = new Item(itemData);
     await newItem.save();
 
-    // Update user stats
-    await User.findByIdAndUpdate(
-      user.userId,
-      { 
-        $inc: { 
+    const updatedUser = await User.findByIdAndUpdate(
+      new ObjectId(user.userId),
+      {
+        $inc: {
           'stats.itemsSubmitted': 1,
           'stats.co2Saved': impactMetrics.co2Saved,
-          'stats.ecoPoints': Math.floor(impactMetrics.co2Saved * 10), // 10 points per kg CO2
-        }
-      }
+          'stats.ecoPoints': Math.floor(impactMetrics.co2Saved * 10),
+        },
+      },
+      { new: true, runValidators: true }
     );
 
     return NextResponse.json(
@@ -129,36 +109,32 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Item submitted successfully',
         item: newItem,
+        updatedUserStats: updatedUser?.stats,
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Item submission error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal Server Error', details: error }, { status: 500 });
   }
 }
 
 function calculateImpactMetrics(category: string, condition: string) {
-  // Base CO2 savings by category (in kg)
   const baseCO2Savings: Record<string, number> = {
-    'clothing': 2.5,
-    'electronics': 5.7,
-    'shoes': 3.2,
-    'home': 8.4,
-    'sports': 1.8,
-    'accessories': 4.1,
+    clothing: 2.5,
+    electronics: 5.7,
+    shoes: 3.2,
+    home: 8.4,
+    sports: 1.8,
+    accessories: 4.1,
   };
 
-  // Condition multipliers
   const conditionMultipliers: Record<string, number> = {
     'like-new': 1.0,
     'very-good': 0.9,
-    'good': 0.8,
-    'fair': 0.6,
-    'poor': 0.4,
+    good: 0.8,
+    fair: 0.6,
+    poor: 0.4,
   };
 
   const baseCO2 = baseCO2Savings[category.toLowerCase()] || 2.0;
@@ -166,7 +142,7 @@ function calculateImpactMetrics(category: string, condition: string) {
   const co2Saved = baseCO2 * multiplier;
 
   return {
-    co2Saved: Math.round(co2Saved * 100) / 100, // Round to 2 decimal places
-    wasteAverted: co2Saved * 0.8, // Estimate waste based on CO2
+    co2Saved: Math.round(co2Saved * 100) / 100,
+    wasteAverted: co2Saved * 0.8,
   };
 }

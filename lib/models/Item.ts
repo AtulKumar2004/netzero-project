@@ -1,3 +1,4 @@
+import { UploadedFile } from '@/components/ui/file-upload';
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IItem extends Document {
@@ -19,7 +20,7 @@ export interface IItem extends Document {
     height: number;
     unit: 'cm' | 'in';
   };
-  images: string[];
+  images: UploadedFile[];
   imagePublicIds?: string[];
   receiptImage?: string;
   receiptPublicId?: string;

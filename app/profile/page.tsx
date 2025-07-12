@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import FileUpload from '@/components/ui/file-upload';
 import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
 
 interface UserProfile {
   _id: string;
