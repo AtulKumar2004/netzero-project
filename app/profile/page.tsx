@@ -25,10 +25,15 @@ import {
   ClipboardList,
   History,
   Info,
+  Package,
+  Eye,
+  MapPin,
+  Calendar
 } from 'lucide-react';
 import FileUpload from '@/components/ui/file-upload';
+import { useAuth } from '@/hooks/use-auth';
 
-interface User {
+interface UserProfile {
   _id: string;
   email: string;
   firstName: string;
@@ -50,6 +55,27 @@ interface FormData {
   profileImage: string;
 }
 
+interface UserItem {
+  _id: string;
+  title: string;
+  description: string;
+  brand?: string;
+  category: string;
+  condition: string;
+  destination: string;
+  status: string;
+  images: string[];
+  pickupAddress: {
+    city: string;
+    state: string;
+  };
+  impactMetrics: {
+    co2Saved: number;
+    wasteAverted: number;
+  };
+  createdAt: string;
+}
+
 // Define UploadedFile interface as it's used by the FileUpload component
 interface UploadedFile {
   url: string;
@@ -59,8 +85,9 @@ interface UploadedFile {
 }
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading: authLoading, refreshUser } = useAuth();
+  const [userItems, setUserItems] = useState<UserItem[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -74,8 +101,15 @@ export default function ProfilePage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
+    if (user) {
+      setFormData({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileImage: user.profileImage || '',
+      });
+    }
+  }, [user]);
 
   // New useEffect to save profile image changes to backend
   useEffect(() => {
@@ -89,35 +123,25 @@ export default function ProfilePage() {
   // New useEffect to re-fetch data when 'Items Submitted' tab is active
   useEffect(() => {
     if (activeTab === 'items-submitted') {
-      console.log('Fetching user data due to tab change to items-submitted'); // Debug log
-      fetchUserData();
+      fetchUserItems();
     }
   }, [activeTab]);
 
-  const fetchUserData = async () => {
+  const fetchUserItems = async () => {
+    setItemsLoading(true);
     try {
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/items/my-items');
       if (response.ok) {
         const data = await response.json();
-        console.log('User data fetched:', data); // Debug log: Inspect full data
-        console.log('Items Submitted from fetched data:', data.user.stats.itemsSubmitted); // Debug log
-        setUser(data.user);
-        setFormData({
-          firstName: data.user.firstName,
-          lastName: data.user.lastName,
-          email: data.user.email,
-          profileImage: data.user.profileImage || '',
-        });
+        setUserItems(data.items);
       } else {
-        toast.error('Failed to fetch user data. Please log in again.');
-        router.push('/auth/login');
+        toast.error('Failed to fetch your items');
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
-      toast.error('An error occurred while fetching user data.');
-      router.push('/auth/login');
+      console.error('Error fetching user items:', error);
+      toast.error('An error occurred while fetching your items');
     } finally {
-      setLoading(false);
+      setItemsLoading(false);
     }
   };
 
@@ -148,8 +172,7 @@ export default function ProfilePage() {
       });
 
       if (response.ok) {
-        const updatedUserData = await response.json(); // Assuming your /api/auth/me PUT returns the updated user object
-        setUser(updatedUserData.user); // Update local user state directly with the new data from the API response
+        await refreshUser(); // Refresh user data from auth context
         toast.success('Profile updated successfully');
       } else {
         const errorData = await response.json();
@@ -206,7 +229,28 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'submitted': return 'bg-yellow-100 text-yellow-800';
+      case 'reviewed': return 'bg-blue-100 text-blue-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'collected': return 'bg-purple-100 text-purple-800';
+      case 'completed': return 'bg-emerald-100 text-emerald-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getDestinationIcon = (destination: string) => {
+    switch (destination) {
+      case 'donate': return '❤️';
+      case 'resale': return '🛍️';
+      case 'recycle': return '♻️';
+      default: return '📦';
+    }
+  };
+
+  if (authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <p>Loading profile...</p>
@@ -387,18 +431,90 @@ export default function ProfilePage() {
                   Items Submitted
                 </CardTitle>
                 <CardDescription>
-                  Overview of items you have submitted for recycling or donation.
+                  Track all items you have submitted for return, donation, or recycling.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p>
-                  You have submitted{' '}
-                  <span className="font-semibold">
-                    {user.stats.itemsSubmitted}
-                  </span>{' '}
-                  items.
-                </p>
-                {/* You can add a list or table of submitted items here */}
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground">
+                    You have submitted{' '}
+                    <span className="font-semibold text-foreground">
+                      {user.stats.itemsSubmitted}
+                    </span>{' '}
+                    items total.
+                  </p>
+                </div>
+                
+                {itemsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : userItems.length > 0 ? (
+                  <div className="space-y-4">
+                    {userItems.map((item) => (
+                      <div key={item._id} className="border rounded-lg p-4">
+                        <div className="flex items-start gap-4">
+                          {item.images[0] && (
+                            <img
+                              src={item.images[0]}
+                              alt={item.title}
+                              className="w-16 h-16 object-cover rounded-lg"
+                            />
+                          )}
+                          
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h4 className="font-semibold">{item.title}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  {item.brand && `${item.brand} • `}{item.category}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{getDestinationIcon(item.destination)}</span>
+                                <Badge className={getStatusColor(item.status)}>
+                                  {item.status}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            <p className="text-sm mb-3 line-clamp-2">{item.description}</p>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Package className="h-3 w-3" />
+                                <span className="capitalize">{item.condition}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>{item.pickupAddress.city}, {item.pickupAddress.state}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Recycle className="h-3 w-3" />
+                                <span>{item.impactMetrics.co2Saved.toFixed(1)} kg CO2</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No items submitted yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Start your sustainability journey by submitting your first item.
+                    </p>
+                    <Button asChild>
+                      <Link href="/portal/customer">Submit an Item</Link>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
