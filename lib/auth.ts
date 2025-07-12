@@ -1,33 +1,59 @@
-import jwt from 'jsonwebtoken';
-
+import { jwtVerify } from 'jose';
+import { SignJWT } from 'jose';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const secret = new TextEncoder().encode(JWT_SECRET);
 
 export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  [key: string]: unknown;
 }
 
-export async function verifyToken(token?: string): Promise<TokenPayload | null> {
-  if (!token) return null;
+export interface AuthUser {
+  userId: string;
+  role: 'ngo' | 'donor' | 'admin'; // or whatever roles you use
+}
 
+
+export async function verifyToken(token?: string): Promise<AuthUser | null> {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
-    return decoded;
-  } catch (error) {
-    console.error('Token verification error:', error);
+    if (!token) return null;
+
+    const { payload } = await jwtVerify(token, secret);
+
+    // Assert payload is of type AuthUser
+    const user = payload as unknown as AuthUser;
+
+    // Optionally: validate fields at runtime (extra safe)
+    if (typeof user.userId !== 'string' || typeof user.role !== 'string') {
+      throw new Error('Invalid token payload shape');
+    }
+
+    return user;
+  } catch (err) {
+    console.error('Token verification failed:', err);
     return null;
   }
 }
 
-export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+export async function generateToken(payload: TokenPayload): Promise<string> {
+  return await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime('7d')
+    .sign(secret);
 }
 
-export function generateResetToken(): string {
-  return jwt.sign({ type: 'reset' }, JWT_SECRET, { expiresIn: '1h' });
+export async function generateResetToken(): Promise<string> {
+  return await new SignJWT({ type: 'reset' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime('1h')
+    .sign(secret);
 }
 
-export function generateVerificationToken(): string {
-  return jwt.sign({ type: 'verification' }, JWT_SECRET, { expiresIn: '24h' });
+export async function generateVerificationToken(): Promise<string> {
+  return await new SignJWT({ type: 'verification' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime('24h')
+    .sign(secret);
 }

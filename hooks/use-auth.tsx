@@ -1,45 +1,18 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-
-interface User {
-  _id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
-  role: string;
-  profileImage?: string;
-  isVerified: boolean;
-  stats: {
-    itemsSubmitted: number;
-    itemsDonated: number;
-    itemsResold: number;
-    co2Saved: number;
-    revenueGenerated: number;
-    ecoPoints: number;
-  };
-}
+import type { User } from '../lib/schemas/user';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: RegisterData) => Promise<boolean>;
+  register: (userData: User) => Promise<boolean>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<boolean>;
   refreshUser: () => Promise<void>;
-}
-
-interface RegisterData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  role: string;
-  phone?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -71,9 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
@@ -93,13 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (userData: RegisterData): Promise<boolean> => {
+  const register = async (userData: User): Promise<boolean> => {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
 
@@ -110,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast.success('Account created successfully!');
         return true;
       } else {
-        if (data.details && Array.isArray(data.details)) {
+        if (Array.isArray(data.details)) {
           data.details.forEach((error: string) => toast.error(error));
         } else {
           toast.error(data.error || 'Registration failed');
@@ -144,9 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch('/api/auth/me', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
 
@@ -170,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await checkAuthStatus();
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     loading,
     login,
@@ -183,9 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

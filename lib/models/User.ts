@@ -144,7 +144,6 @@ const UserSchema = new Schema<IUser>({
 });
 
 // Indexes
-UserSchema.index({ email: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ isActive: 1 });
 UserSchema.index({ 'address.zipCode': 1 });
@@ -163,7 +162,7 @@ UserSchema.pre('save', async function(next) {
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 });
 

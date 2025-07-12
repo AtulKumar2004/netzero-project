@@ -1,587 +1,447 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Bell, 
-  Shield, 
-  Leaf,
-  Camera,
-  Save,
-  Loader2
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  User,
+  Mail,
+  Lock,
+  Camera,
+  Recycle,
+  ClipboardList,
+  History,
+  Info,
+} from 'lucide-react';
 import FileUpload from '@/components/ui/file-upload';
 
-interface UserProfile {
+interface User {
   _id: string;
   email: string;
   firstName: string;
   lastName: string;
-  phone?: string;
+  fullName: string;
   role: string;
   profileImage?: string;
-  address?: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
-  preferences?: {
-    notifications: {
-      email: boolean;
-      sms: boolean;
-      push: boolean;
-    };
-    sustainability: {
-      preferredDestination: string;
-      impactGoals: string[];
-    };
-  };
   stats: {
     itemsSubmitted: number;
-    itemsDonated: number;
-    itemsResold: number;
     co2Saved: number;
-    revenueGenerated: number;
     ecoPoints: number;
   };
 }
 
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  profileImage: string;
+}
+
+// Define UploadedFile interface as it's used by the FileUpload component
+interface UploadedFile {
+  url: string;
+  name: string;
+  size: number;
+  // Add other properties if they are part of the UploadedFile structure
+}
+
 export default function ProfilePage() {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState<Partial<UserProfile>>({});
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
+  const [formData, setFormData] = useState<FormData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    profileImage: '',
   });
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [activeTab, setActiveTab] = useState('profile'); // State to manage active tab
+  const router = useRouter();
 
   useEffect(() => {
-    fetchUserProfile();
+    fetchUserData();
   }, []);
 
-  const fetchUserProfile = async () => {
+  // New useEffect to save profile image changes to backend
+  useEffect(() => {
+    // Only save if profileImage has a value and it's different from the initial user.profileImage
+    // This prevents saving on initial load if user already has a profile image
+    if (formData.profileImage && user && formData.profileImage !== user.profileImage) {
+      saveProfileChanges({ profileImage: formData.profileImage });
+    }
+  }, [formData.profileImage, user]); // Depend on formData.profileImage and user
+
+  // New useEffect to re-fetch data when 'Items Submitted' tab is active
+  useEffect(() => {
+    if (activeTab === 'items-submitted') {
+      console.log('Fetching user data due to tab change to items-submitted'); // Debug log
+      fetchUserData();
+    }
+  }, [activeTab]);
+
+  const fetchUserData = async () => {
     try {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
         const data = await response.json();
+        console.log('User data fetched:', data); // Debug log: Inspect full data
+        console.log('Items Submitted from fetched data:', data.user.stats.itemsSubmitted); // Debug log
         setUser(data.user);
-        setFormData(data.user);
+        setFormData({
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          email: data.user.email,
+          profileImage: data.user.profileImage || '',
+        });
       } else {
-        toast.error('Failed to load profile');
+        toast.error('Failed to fetch user data. Please log in again.');
+        router.push('/auth/login');
       }
     } catch (error) {
-      toast.error('Network error');
+      console.error('Error fetching user data:', error);
+      toast.error('An error occurred while fetching user data.');
+      router.push('/auth/login');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleNestedChange = (parent: string, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [parent]: {
-        ...prev[parent as keyof UserProfile],
-        [field]: value
-      }
-    }));
+  // Updated: Accept UploadedFile[] and extract the url
+  const handleProfileImageUpload = (files: UploadedFile[]) => {
+    if (files.length > 0) {
+      const newProfileImageUrl = files[0].url; // Access the 'url' property of the UploadedFile object
+      // Just update local state. The useEffect will handle saving to backend.
+      setFormData((prev) => ({ ...prev, profileImage: newProfileImageUrl }));
+    }
   };
 
-  const handleProfileUpdate = async () => {
-    setSaving(true);
+  const saveProfileChanges = async (
+    updates: Partial<FormData> = formData,
+  ) => {
     try {
       const response = await fetch('/api/auth/me', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(updates),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
+        const updatedUserData = await response.json(); // Assuming your /api/auth/me PUT returns the updated user object
+        setUser(updatedUserData.user); // Update local user state directly with the new data from the API response
         toast.success('Profile updated successfully');
       } else {
-        const data = await response.json();
-        toast.error(data.error || 'Update failed');
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to update profile');
       }
     } catch (error) {
-      toast.error('Network error');
-    } finally {
-      setSaving(false);
+      console.error('Error updating profile:', error);
+      toast.error('An error occurred while updating profile.');
     }
   };
 
-  const handlePasswordChange = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('Passwords do not match');
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error('New password and confirm password do not match.');
       return;
     }
-
-    if (passwordData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
     try {
       const response = await fetch('/api/auth/change-password', {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword,
-        }),
+        body: JSON.stringify({ currentPassword, newPassword }),
       });
 
       if (response.ok) {
         toast.success('Password changed successfully');
-        setPasswordData({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: '',
-        });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
       } else {
-        const data = await response.json();
-        toast.error(data.error || 'Password change failed');
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to change password');
       }
     } catch (error) {
-      toast.error('Network error');
-    }
-  };
-
-  const handleProfileImageUpload = (files: any[]) => {
-    if (files.length > 0) {
-      handleInputChange('profileImage', files[0].url);
-      toast.success('Profile image updated');
+      console.error('Error changing password:', error);
+      toast.error('An error occurred while changing password.');
     }
   };
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'customer': return 'bg-blue-100 text-blue-800';
-      case 'retailer': return 'bg-green-100 text-green-800';
-      case 'ngo': return 'bg-purple-100 text-purple-800';
-      case 'admin': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'customer':
+        return 'bg-blue-100 text-blue-800';
+      case 'retailer':
+        return 'bg-green-100 text-green-800';
+      case 'ngo':
+        return 'bg-purple-100 text-purple-800';
+      case 'admin':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading profile...</p>
-        </div>
+      <div className="flex justify-center items-center h-screen">
+        <p>Loading profile...</p>
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center">
-        <Alert>
-          <AlertDescription>Please log in to view your profile.</AlertDescription>
-        </Alert>
-      </div>
-    );
+    return null; // Or redirect to login
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Profile Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your account settings and preferences
-          </p>
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">My Profile</h1>
 
-        <Tabs defaultValue="profile" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="preferences">Preferences</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="stats">My Impact</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="profile" className="w-full" onValueChange={setActiveTab}> {/* Added onValueChange prop */}
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-5 h-auto">
+          <TabsTrigger value="profile">
+            <User className="h-4 w-4 mr-2" /> Profile
+          </TabsTrigger>
+          <TabsTrigger value="password">
+            <Lock className="h-4 w-4 mr-2" /> Password
+          </TabsTrigger>
+          {user.role === 'customer' && (
+            <TabsTrigger value="items-submitted">
+              <Recycle className="h-4 w-4 mr-2" /> Items Submitted
+            </TabsTrigger>
+          )}
+          {(user.role === 'retailer' || user.role === 'ngo') && (
+            <TabsTrigger value="pickup-requests">
+              <ClipboardList className="h-4 w-4 mr-2" /> Pickup Requests
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="transaction-history">
+            <History className="h-4 w-4 mr-2" /> Transaction History
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Personal Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center gap-6">
-                  <div className="relative">
-                    <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                      {formData.profileImage ? (
-                        <img
-                          src={formData.profileImage}
-                          alt="Profile"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <User className="h-12 w-12 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="absolute -bottom-2 -right-2">
-                      <FileUpload
-                        onFilesUploaded={handleProfileImageUpload}
-                        maxFiles={1}
-                        maxFileSize={5}
-                        acceptedTypes={['image/*']}
-                        folder="profiles"
-                      >
-                        <Button size="sm" className="rounded-full p-2">
-                          <Camera className="h-4 w-4" />
-                        </Button>
-                      </FileUpload>
-                    </div>
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Personal Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+                {/* Section for Profile Picture & Upload */}
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-primary/20">
+                    {formData.profileImage ? (
+                      <img
+                        src={formData.profileImage}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-16 w-16 text-muted-foreground" />
+                    )}
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{user.firstName} {user.lastName}</h3>
-                    <p className="text-muted-foreground">{user.email}</p>
-                    <Badge className={getRoleColor(user.role)} variant="secondary">
-                      {user.role}
-                    </Badge>
-                  </div>
+                  {/* Removed the Button children from FileUpload as it's not expected */}
+                  <FileUpload
+                    onFilesUploaded={handleProfileImageUpload}
+                    maxFiles={1}
+                    maxFileSize={5}
+                    acceptedTypes={['image/*']}
+                    folder="profiles"
+                  />
+                  <p className="text-xs text-muted-foreground text-center mt-1">
+                    Maximum 1 file, 5MB each. Supported formats: image/*.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input
-                      id="firstName"
-                      value={formData.firstName || ''}
-                      onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName || ''}
-                      onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    />
-                  </div>
+                {/* Section for User Details (Name, Email, Role) */}
+                <div className="text-center md:text-left">
+                  <h3 className="text-xl font-semibold mb-1">
+                    {user.fullName}
+                  </h3>
+                  <p className="text-muted-foreground mb-2">{user.email}</p>
+                  <Badge className={getRoleColor(user.role)} variant="secondary">
+                    {user.role}
+                  </Badge>
                 </div>
+              </div>
 
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
                   <Input
-                    id="phone"
-                    value={formData.phone || ''}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    placeholder="+1 (555) 123-4567"
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
                   />
                 </div>
-
-                <div className="space-y-4">
-                  <Label>Address</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Input
-                        placeholder="Street Address"
-                        value={formData.address?.street || ''}
-                        onChange={(e) => handleNestedChange('address', 'street', e.target.value)}
-                      />
-                    </div>
-                    <Input
-                      placeholder="City"
-                      value={formData.address?.city || ''}
-                      onChange={(e) => handleNestedChange('address', 'city', e.target.value)}
-                    />
-                    <Input
-                      placeholder="State"
-                      value={formData.address?.state || ''}
-                      onChange={(e) => handleNestedChange('address', 'state', e.target.value)}
-                    />
-                    <Input
-                      placeholder="ZIP Code"
-                      value={formData.address?.zipCode || ''}
-                      onChange={(e) => handleNestedChange('address', 'zipCode', e.target.value)}
-                    />
-                    <Input
-                      placeholder="Country"
-                      value={formData.address?.country || 'US'}
-                      onChange={(e) => handleNestedChange('address', 'country', e.target.value)}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                  />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  readOnly // Email is often read-only for security or changed via separate process
+                />
+              </div>
+              <Button onClick={() => saveProfileChanges()}>Save Changes</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                <Button onClick={handleProfileUpdate} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="preferences">
-            <div className="grid gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="h-5 w-5" />
-                    Notification Preferences
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Receive updates about your items and transactions
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.preferences?.notifications?.email ?? true}
-                      onCheckedChange={(checked) => 
-                        handleNestedChange('preferences', 'notifications', {
-                          ...formData.preferences?.notifications,
-                          email: checked
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>SMS Notifications</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Get text messages for pickup updates
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.preferences?.notifications?.sms ?? false}
-                      onCheckedChange={(checked) => 
-                        handleNestedChange('preferences', 'notifications', {
-                          ...formData.preferences?.notifications,
-                          sms: checked
-                        })
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Leaf className="h-5 w-5" />
-                    Sustainability Preferences
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Preferred Destination</Label>
-                    <Select
-                      value={formData.preferences?.sustainability?.preferredDestination || 'any'}
-                      onValueChange={(value) => 
-                        handleNestedChange('preferences', 'sustainability', {
-                          ...formData.preferences?.sustainability,
-                          preferredDestination: value
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="any">Any (Let ReLoop decide)</SelectItem>
-                        <SelectItem value="donate">Prefer Donation</SelectItem>
-                        <SelectItem value="resale">Prefer Resale</SelectItem>
-                        <SelectItem value="recycle">Prefer Recycling</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Button onClick={handleProfileUpdate} disabled={saving}>
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Preferences
-                  </>
-                )}
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="security">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Change Password
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
+        <TabsContent value="password">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Change Password
+              </CardTitle>
+              <CardDescription>
+                Update your password for enhanced security.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div className="space-y-2">
                   <Label htmlFor="currentPassword">Current Password</Label>
                   <Input
                     id="currentPassword"
                     type="password"
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData(prev => ({
-                      ...prev,
-                      currentPassword: e.target.value
-                    }))}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="newPassword">New Password</Label>
                   <Input
                     id="newPassword"
                     type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData(prev => ({
-                      ...prev,
-                      newPassword: e.target.value
-                    }))}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm New Password</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData(prev => ({
-                      ...prev,
-                      confirmPassword: e.target.value
-                    }))}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
                   />
                 </div>
-                <Button onClick={handlePasswordChange}>
-                  Change Password
-                </Button>
+                <Button type="submit">Change Password</Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {user.role === 'customer' && (
+          <TabsContent value="items-submitted">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Recycle className="h-5 w-5" />
+                  Items Submitted
+                </CardTitle>
+                <CardDescription>
+                  Overview of items you have submitted for recycling or donation.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>
+                  You have submitted{' '}
+                  <span className="font-semibold">
+                    {user.stats.itemsSubmitted}
+                  </span>{' '}
+                  items.
+                </p>
+                {/* You can add a list or table of submitted items here */}
               </CardContent>
             </Card>
           </TabsContent>
+        )}
 
-          <TabsContent value="stats">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Items Submitted</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-blue-600">
-                    {user.stats.itemsSubmitted}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Total items processed</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>CO2 Saved</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-green-600">
-                    {user.stats.co2Saved} kg
-                  </div>
-                  <p className="text-sm text-muted-foreground">Environmental impact</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Eco Points</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-purple-600">
-                    {user.stats.ecoPoints}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Sustainability score</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Items Donated</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-pink-600">
-                    {user.stats.itemsDonated}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Community impact</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Items Resold</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-orange-600">
-                    {user.stats.itemsResold}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Circular economy</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue Generated</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-emerald-600">
-                    ${(user.stats.revenueGenerated / 100).toFixed(2)}
-                  </div>
-                  <p className="text-sm text-muted-foreground">From resales</p>
-                </CardContent>
-              </Card>
-            </div>
+        {(user.role === 'retailer' || user.role === 'ngo') && (
+          <TabsContent value="pickup-requests">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Pickup Requests
+                </CardTitle>
+                <CardDescription>
+                  Manage and view details of your pickup requests.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p>Pickup request management goes here.</p>
+                {/* Add tables or lists for pickup requests */}
+              </CardContent>
+            </Card>
           </TabsContent>
-        </Tabs>
-      </div>
+        )}
+
+        <TabsContent value="transaction-history">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Transaction History
+              </CardTitle>
+              <CardDescription>
+                View your past transactions and eco-points earned.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Transaction history details will be displayed here.</p>
+              {/* Add transaction history table/list */}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

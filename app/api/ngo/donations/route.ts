@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get('auth-token')?.value;
     const user = await verifyToken(token);
-    
+
     if (!user || user.role !== 'ngo') {
       return NextResponse.json(
         { error: 'Unauthorized - NGO access required' },
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const status = searchParams.get('status');
+    const status = searchParams.get('status') || 'available';
     const category = searchParams.get('category');
     const location = searchParams.get('location');
 
@@ -27,15 +27,22 @@ export async function GET(request: NextRequest) {
     const itemsCollection = db.collection<Item>('items');
 
     // Build query for available donations
-    const query: any = {
+    let query: any = {
       destination: 'donate',
-      status: { $in: ['submitted', 'reviewed', 'approved'] }
     };
 
-    // If NGO is assigned to specific items
-    if (status === 'assigned') {
+    if (status === 'available') {
+      query.status = { $in: ['submitted', 'reviewed', 'approved'] };
+    } else if (status === 'assigned') {
       query.destinationId = new ObjectId(user.userId);
-    } else if (status !== 'available') {
+      query.status = { $in: ['approved', 'processing', 'completed'] };
+    } else if (status === 'processing') {
+      query.destinationId = new ObjectId(user.userId);
+      query.status = 'processing';
+    } else if (status === 'completed') {
+      query.destinationId = new ObjectId(user.userId);
+      query.status = 'completed';
+    } else if (status && status !== 'all') {
       query.status = status;
     }
 
@@ -95,7 +102,7 @@ export async function POST(request: NextRequest) {
   try {
     const token = request.cookies.get('auth-token')?.value;
     const user = await verifyToken(token);
-    
+
     if (!user || user.role !== 'ngo') {
       return NextResponse.json(
         { error: 'Unauthorized - NGO access required' },
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
         updateData.status = 'approved';
         updateData.internalNotes = notes;
         break;
-      
+
       case 'schedule-pickup':
         if (!pickupDate) {
           return NextResponse.json(
@@ -136,12 +143,12 @@ export async function POST(request: NextRequest) {
         updateData.pickupDate = new Date(pickupDate);
         updateData.status = 'processing';
         break;
-      
+
       case 'complete':
         updateData.status = 'completed';
         updateData.deliveryDate = new Date();
         break;
-      
+
       default:
         return NextResponse.json(
           { error: 'Invalid action' },
@@ -150,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await itemsCollection.updateMany(
-      { 
+      {
         _id: { $in: itemIds.map(id => new ObjectId(id)) },
         destination: 'donate'
       },
@@ -165,9 +172,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { 
+      {
         message: `${action} completed for ${result.modifiedCount} items`,
-        modifiedCount: result.modifiedCount 
+        modifiedCount: result.modifiedCount
       },
       { status: 200 }
     );

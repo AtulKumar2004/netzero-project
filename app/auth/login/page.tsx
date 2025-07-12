@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,19 +11,28 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Recycle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/portal';
+  const { user, loading } = useAuth(); // Use the useAuth hook
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false); // Renamed to avoid conflict
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    // Redirect if user is already logged in and not loading
+    if (!loading && user) {
+      router.push(redirectTo);
+    }
+  }, [user, loading, router, redirectTo]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -35,7 +44,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setLocalLoading(true);
     setError('');
 
     try {
@@ -65,9 +74,14 @@ export default function LoginPage() {
       console.error('Login error:', error);
       setError('Network error. Please try again.');
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
+
+  // Do not render the login form if already loading or user is logged in
+  if (loading || user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">
@@ -102,7 +116,7 @@ export default function LoginPage() {
                 onChange={handleChange}
                 placeholder="Enter your email"
                 required
-                disabled={loading}
+                disabled={localLoading}
               />
             </div>
 
@@ -117,7 +131,7 @@ export default function LoginPage() {
                   onChange={handleChange}
                   placeholder="Enter your password"
                   required
-                  disabled={loading}
+                  disabled={localLoading}
                 />
                 <Button
                   type="button"
@@ -125,7 +139,7 @@ export default function LoginPage() {
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
+                  disabled={localLoading}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -136,8 +150,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
+            <Button type="submit" className="w-full" disabled={localLoading}>
+              {localLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Signing in...

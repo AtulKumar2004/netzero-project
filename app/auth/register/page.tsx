@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Recycle, Eye, EyeOff, Loader2, User, Store, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth'; // Import useAuth
 
 const roleOptions = [
   {
@@ -36,6 +37,7 @@ const roleOptions = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { user, loading } = useAuth(); // Use the useAuth hook
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -48,8 +50,19 @@ export default function RegisterPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false); // Renamed to avoid conflict
   const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Redirect if user is already logged in and not loading
+    if (!loading && user) {
+      // Determine redirect path based on user role, or a default
+      const redirectPath = user.role === 'customer' ? '/portal/customer' : 
+                           user.role === 'retailer' ? '/portal/retailer' : 
+                           user.role === 'ngo' ? '/portal/ngo' : '/portal';
+      router.push(redirectPath);
+    }
+  }, [user, loading, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -101,7 +114,7 @@ export default function RegisterPage() {
       return;
     }
 
-    setLoading(true);
+    setLocalLoading(true);
     setErrors([]);
 
     try {
@@ -136,9 +149,14 @@ export default function RegisterPage() {
       console.error('Registration error:', error);
       setErrors(['Network error. Please try again.']);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
+
+  // Do not render the registration form if already loading or user is logged in
+  if (loading || user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">
@@ -179,7 +197,7 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="John"
                   required
-                  disabled={loading}
+                  disabled={localLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -191,7 +209,7 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="Doe"
                   required
-                  disabled={loading}
+                  disabled={localLoading}
                 />
               </div>
             </div>
@@ -206,7 +224,7 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 placeholder="john@example.com"
                 required
-                disabled={loading}
+                disabled={localLoading}
               />
             </div>
 
@@ -219,13 +237,13 @@ export default function RegisterPage() {
                 value={formData.phone}
                 onChange={handleChange}
                 placeholder="+1 (555) 123-4567"
-                disabled={loading}
+                disabled={localLoading}
               />
             </div>
 
             <div className="space-y-2">
               <Label>Role</Label>
-              <Select value={formData.role} onValueChange={handleRoleChange} disabled={loading}>
+              <Select value={formData.role} onValueChange={handleRoleChange} disabled={localLoading}>\
                 <SelectTrigger>
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
@@ -256,7 +274,7 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="Create a password"
                   required
-                  disabled={loading}
+                  disabled={localLoading}
                 />
                 <Button
                   type="button"
@@ -264,7 +282,7 @@ export default function RegisterPage() {
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
+                  disabled={localLoading}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -286,7 +304,7 @@ export default function RegisterPage() {
                   onChange={handleChange}
                   placeholder="Confirm your password"
                   required
-                  disabled={loading}
+                  disabled={localLoading}
                 />
                 <Button
                   type="button"
@@ -294,7 +312,7 @@ export default function RegisterPage() {
                   size="sm"
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  disabled={loading}
+                  disabled={localLoading}
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -305,8 +323,8 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
+            <Button type="submit" className="w-full" disabled={localLoading}>
+              {localLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating account...

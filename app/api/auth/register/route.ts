@@ -1,8 +1,8 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongoose';
 import User from '@/lib/models/User';
 import jwt from 'jsonwebtoken';
-
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 export async function POST(request: NextRequest) {

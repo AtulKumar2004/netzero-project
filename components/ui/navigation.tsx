@@ -123,7 +123,7 @@ export default function Navigation() {
           <div className="flex items-center gap-4">
             {loading ? (
               <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
-            ) : user ? (
+            ) : user && !loading ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">

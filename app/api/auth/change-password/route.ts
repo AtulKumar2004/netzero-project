@@ -3,6 +3,8 @@ import connectDB from '@/lib/mongoose';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/auth';
 
+export const runtime = 'nodejs';
+
 export async function PUT(request: NextRequest) {
   try {
     await connectDB();

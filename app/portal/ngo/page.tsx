@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth';
 
 interface Item {
   _id: string;
@@ -41,7 +41,7 @@ interface Item {
     street: string;
     city: string;
     state: string;
-    zipCode: string;
+    zipCode: string
   };
   submitter?: {
     name: string;
@@ -49,7 +49,7 @@ interface Item {
   };
   impactMetrics: {
     co2Saved: number;
-    wasteAverted: number;
+    wasteAverted: number
   };
   createdAt: string;
 }
@@ -62,18 +62,18 @@ interface Analytics {
     availableDonations: number;
     totalImpact: number;
     totalWeight: number;
-    completionRate: string;
+    completionRate: string
   };
   pickups: {
     totalPickups: number;
     completedPickups: number;
-    pendingPickups: number;
+    pendingPickups: number
   };
   categories: Array<{
     _id: string;
     count: number;
-    impact: number;
-  }>;
+    impact: number
+  }>
 }
 
 export default function NGOPortal() {
@@ -81,11 +81,12 @@ export default function NGOPortal() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState('available');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [locationFilter, setLocationFilter] = useState('');
-  const [pickupDate, setPickupDate] = useState('');
-  const [notes, setNotes] = useState('');
+  const [statusFilter, setStatusFilter] = useState("available");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [pickupDate, setPickupDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchItems();
@@ -95,20 +96,20 @@ export default function NGOPortal() {
   const fetchItems = async () => {
     try {
       const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-      if (categoryFilter !== 'all') params.append('category', categoryFilter);
-      if (locationFilter) params.append('location', locationFilter);
+      if (statusFilter !== "all") params.append("status", statusFilter);
+      if (categoryFilter !== "all") params.append("category", categoryFilter);
+      if (locationFilter) params.append("location", locationFilter);
       
-      const response = await fetch(`/api/ngo/donations?${params}`);
+      const response = await fetch(`/api/ngo/donations?${params}`)
       const data = await response.json();
-      
+
       if (response.ok) {
         setItems(data.items);
       } else {
-        toast.error(data.error || 'Failed to fetch donations');
+        toast.error(data.error || "Failed to fetch donations");
       }
     } catch (error) {
-      toast.error('Failed to fetch donations');
+      toast.error("Failed to fetch donations");
     } finally {
       setLoading(false);
     }
@@ -116,55 +117,57 @@ export default function NGOPortal() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('/api/ngo/analytics');
+      const response = await fetch("/api/ngo/analytics");
       const data = await response.json();
-      
+  
       if (response.ok) {
         setAnalytics(data);
+      } else {
+        console.error("Failed to fetch analytics:", data.error || data);
       }
     } catch (error) {
-      console.error('Failed to fetch analytics:', error);
+      console.error("Failed to fetch analytics:", error);
     }
   };
+  
 
   const handleItemAction = async (action: string) => {
     if (selectedItems.length === 0) {
-      toast.error('Please select items first');
+      toast.error("Please select items first");
       return;
     }
 
     try {
-      const response = await fetch('/api/ngo/donations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/ngo/donations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           itemIds: selectedItems,
           action,
-          pickupDate: action === 'schedule-pickup' ? pickupDate : undefined,
+          pickupDate: action === "schedule-pickup" ? pickupDate : undefined,
           notes
         }),
       });
-
       const data = await response.json();
-      
+
       if (response.ok) {
         toast.success(data.message);
         fetchItems();
         fetchAnalytics();
         setSelectedItems([]);
-        setPickupDate('');
-        setNotes('');
+        setPickupDate("");
+        setNotes("");
       } else {
-        toast.error(data.error || 'Action failed');
+        toast.error(data.error || "Action failed");
       }
     } catch (error) {
-      toast.error('Action failed');
+      toast.error("Action failed");
     }
   };
 
   const toggleItemSelection = (itemId: string) => {
-    setSelectedItems(prev => 
-      prev.includes(itemId) 
+    setSelectedItems(prev =>
+      prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
         : [...prev, itemId]
     );
@@ -172,12 +175,12 @@ export default function NGOPortal() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'submitted': return 'bg-yellow-100 text-yellow-800';
-      case 'reviewed': return 'bg-blue-100 text-blue-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'processing': return 'bg-purple-100 text-purple-800';
-      case 'completed': return 'bg-emerald-100 text-emerald-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case "submitted": return "bg-yellow-100 text-yellow-800";
+      case "reviewed": return "bg-blue-100 text-blue-800";
+      case "approved": return "bg-green-100 text-green-800";
+      case "processing": return "bg-purple-100 text-purple-800";
+      case "completed": return "bg-emerald-100 text-emerald-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -219,274 +222,274 @@ export default function NGOPortal() {
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
-            {analytics && (
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-purple-50 rounded-lg">
-                        <Heart className="h-5 w-5 text-purple-600" />
-                      </div>
-                      <Badge variant="secondary">Total</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-purple-600">
-                      {analytics.overview.totalDonations}
-                    </div>
-                    <p className="text-sm text-muted-foreground">Total Donations</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-green-50 rounded-lg">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      </div>
-                      <Badge variant="secondary">Completed</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-600">
-                      {analytics.overview.completedDonations}
-                    </div>
-                    <p className="text-sm text-muted-foreground">Completed</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-blue-50 rounded-lg">
-                        <Leaf className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <Badge variant="secondary">Impact</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-blue-600">
-                      {analytics.overview.totalImpact} kg
-                    </div>
-                    <p className="text-sm text-muted-foreground">CO2 Saved</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-orange-50 rounded-lg">
-                        <Package className="h-5 w-5 text-orange-600" />
-                      </div>
-                      <Badge variant="secondary">Available</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-orange-600">
-                      {analytics.overview.availableDonations}
-                    </div>
-                    <p className="text-sm text-muted-foreground">Available</p>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            <div className="grid md:grid-cols-2 gap-6">
+        <TabsContent value="overview">
+          {analytics && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Truck className="h-5 w-5" />
-                    Pickup Status
-                  </CardTitle>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 bg-purple-50 rounded-lg">
+                      <Heart className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <Badge variant="secondary">Total</Badge>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {analytics && (
-                    <div className="space-y-4">
-                      <div className="flex justify-between">
-                        <span>Total Pickups</span>
-                        <span className="font-semibold">
-                          {analytics.pickups.totalPickups}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Completed</span>
-                        <span className="font-semibold text-green-600">
-                          {analytics.pickups.completedPickups}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Pending</span>
-                        <span className="font-semibold text-yellow-600">
-                          {analytics.pickups.pendingPickups}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="text-2xl font-bold text-purple-600">
+                    {analytics.overview.totalDonations}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Total Donations</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    Impact Summary
-                  </CardTitle>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 bg-green-50 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <Badge variant="secondary">Completed</Badge>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {analytics && (
-                    <div className="space-y-4">
-                      <div className="flex justify-between">
-                        <span>Completion Rate</span>
-                        <span className="font-semibold">
-                          {analytics.overview.completionRate}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Weight</span>
-                        <span className="font-semibold">
-                          {analytics.overview.totalWeight} kg
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Pending Items</span>
-                        <span className="font-semibold">
-                          {analytics.overview.pendingDonations}
-                        </span>
-                      </div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {analytics.overview.completedDonations}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Completed</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                      <Leaf className="h-5 w-5 text-blue-600" />
                     </div>
-                  )}
+                    <Badge variant="secondary">Impact</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {analytics.overview.totalImpact} kg
+                  </div>
+                  <p className="text-sm text-muted-foreground">CO2 Saved</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="p-2 bg-orange-50 rounded-lg">
+                      <Package className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <Badge variant="secondary">Available</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {analytics.overview.availableDonations}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Available</p>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="donations">
+          <div className="grid md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Heart className="h-5 w-5" />
-                    Available Donations
-                  </CardTitle>
-                  <div className="flex gap-2">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="available">Available</SelectItem>
-                        <SelectItem value="assigned">Assigned</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="clothing">Clothing</SelectItem>
-                        <SelectItem value="electronics">Electronics</SelectItem>
-                        <SelectItem value="home">Home</SelectItem>
-                        <SelectItem value="books">Books</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  Pickup Status
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {selectedItems.length > 0 && (
-                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
+                {analytics && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Total Pickups</span>
                       <span className="font-semibold">
-                        {selectedItems.length} items selected
+                        {analytics.pickups.totalPickups}
                       </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedItems([])}
-                      >
-                        Clear Selection
-                      </Button>
                     </div>
-                    <div className="flex gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm">
-                            <Heart className="h-4 w-4 mr-2" />
-                            Claim Items
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Claim Selected Items</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="notes">Notes</Label>
-                              <Textarea
-                                id="notes"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Add any notes about claiming these items"
-                                rows={3}
-                              />
-                            </div>
-                            <Button 
-                              onClick={() => handleItemAction('claim')}
-                              className="w-full"
-                            >
-                              Claim {selectedItems.length} Items
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button size="sm" variant="outline">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Schedule Pickup
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Schedule Pickup</DialogTitle>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="pickupDate">Pickup Date</Label>
-                              <Input
-                                id="pickupDate"
-                                type="date"
-                                value={pickupDate}
-                                onChange={(e) => setPickupDate(e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="pickupNotes">Notes</Label>
-                              <Textarea
-                                id="pickupNotes"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Special instructions for pickup"
-                                rows={3}
-                              />
-                            </div>
-                            <Button 
-                              onClick={() => handleItemAction('schedule-pickup')}
-                              className="w-full"
-                            >
-                              Schedule Pickup
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
+                    <div className="flex justify-between">
+                      <span>Completed</span>
+                      <span className="font-semibold text-green-600">
+                        {analytics.pickups.completedPickups}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pending</span>
+                      <span className="font-semibold text-yellow-600">
+                        {analytics.pickups.pendingPickups}
+                      </span>
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Impact Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analytics && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span>Completion Rate</span>
+                      <span className="font-semibold">
+                        {analytics.overview.completionRate}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Weight</span>
+                      <span className="font-semibold">
+                        {analytics.overview.totalWeight} kg
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pending Items</span>
+                      <span className="font-semibold">
+                        {analytics.overview.pendingDonations}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="donations">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Heart className="h-5 w-5" />
+                  Available Donations
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="available">Available</SelectItem>
+                      <SelectItem value="assigned">Assigned</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="clothing">Clothing</SelectItem>
+                      <SelectItem value="electronics">Electronics</SelectItem>
+                      <SelectItem value="home">Home</SelectItem>
+                      <SelectItem value="books">Books</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {selectedItems.length > 0 && (
+                <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold">
+                      {selectedItems.length} items selected
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedItems([])}
+                    >
+                      Clear Selection
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <Heart className="h-4 w-4 mr-2" />
+                          Claim Items
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Claim Selected Items</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                              id="notes"
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                              placeholder="Add any notes about claiming these items"
+                              rows={3}
+                            />
+                          </div>
+                          <Button
+                            onClick={() => handleItemAction("claim")}
+                            className="w-full"
+                          >
+                            Claim {selectedItems.length} Items
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Schedule Pickup
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Schedule Pickup</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label htmlFor="pickupDate">Pickup Date</Label>
+                            <Input
+                              id="pickupDate"
+                              type="date"
+                              value={pickupDate}
+                              onChange={(e) => setPickupDate(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="pickupNotes">Notes</Label>
+                            <Textarea
+                              id="pickupNotes"
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                              placeholder="Special instructions for pickup"
+                              rows={3}
+                            />
+                          </div>
+                          <Button
+                            onClick={() => handleItemAction("schedule-pickup")}
+                            className="w-full"
+                          >
+                            Schedule Pickup
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
+              )}
 
                 <div className="space-y-4">
                   {items.map((item) => (
@@ -496,7 +499,7 @@ export default function NGOPortal() {
                           checked={selectedItems.includes(item._id)}
                           onCheckedChange={() => toggleItemSelection(item._id)}
                         />
-                        
+
                         {item.images[0] && (
                           <img
                             src={item.images[0]}
@@ -504,7 +507,7 @@ export default function NGOPortal() {
                             className="w-16 h-16 object-cover rounded-lg"
                           />
                         )}
-                        
+
                         <div className="flex-1">
                           <div className="flex items-start justify-between mb-2">
                             <div>
@@ -516,9 +519,9 @@ export default function NGOPortal() {
                               {item.status}
                             </Badge>
                           </div>
-                          
+
                           <p className="text-sm mb-2">{item.description}</p>
-                          
+
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                               <span className="text-muted-foreground">Condition:</span> {item.condition}
@@ -551,11 +554,11 @@ export default function NGOPortal() {
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <TabsContent value="analytics">
+        <TabsContent value="analytics">
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -595,14 +598,14 @@ export default function NGOPortal() {
                         </div>
                         <p className="text-sm text-muted-foreground">Total CO2 Saved</p>
                       </div>
-                      
+
                       <div className="text-center">
                         <div className="text-3xl font-bold text-blue-600 mb-1">
                           {analytics.overview.totalWeight} kg
                         </div>
                         <p className="text-sm text-muted-foreground">Waste Diverted</p>
                       </div>
-                      
+
                       <div className="text-center">
                         <div className="text-3xl font-bold text-purple-600 mb-1">
                           {analytics.overview.completionRate}%
@@ -630,20 +633,20 @@ export default function NGOPortal() {
                       <Input placeholder="Registration Number" />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label>Mission Statement</Label>
-                    <Textarea 
+                    <Textarea
                       placeholder="Describe your organization's mission and goals"
                       rows={3}
                     />
                   </div>
-                  
+
                   <div>
                     <Label>Service Areas</Label>
                     <Input placeholder="Enter zip codes or cities you serve" />
                   </div>
-                  
+
                   <div>
                     <Label>Accepted Categories</Label>
                     <div className="grid grid-cols-3 gap-2 mt-2">
@@ -655,7 +658,7 @@ export default function NGOPortal() {
                       ))}
                     </div>
                   </div>
-                  
+
                   <Button>Save Settings</Button>
                 </div>
               </CardContent>

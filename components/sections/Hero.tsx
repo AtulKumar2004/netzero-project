@@ -1,11 +1,48 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Recycle, ShoppingBag, Users, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
+interface User {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  role: string;
+  profileImage?: string;
+  stats: {
+    itemsSubmitted: number;
+    co2Saved: number;
+    ecoPoints: number;
+  };
+}
+
 export default function Hero() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      }
+    } catch (error) {
+      console.error('Auth check failed in Hero:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="relative overflow-hidden">
       <div className="hero-gradient">
@@ -21,9 +58,15 @@ export default function Hero() {
                 connecting retailers, customers, and recyclers in a closed-loop ecosystem.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" asChild>
-                  <Link href="/auth/register">Get Started</Link>
-                </Button>
+                {loading ? (
+                  // Optionally show a skeleton or nothing while loading
+                  <div className="w-32 h-12 rounded-lg bg-emerald-700 animate-pulse" />
+                ) : !user ? ( // Only show "Get Started" if user is NOT logged in
+                  <Button size="lg" asChild>
+                    <Link href="/auth/register">Get Started</Link>
+                  </Button>
+                ) : null // Do not render anything if user is logged in
+                }
                 <Button size="lg" variant="outline" className="border-white text-primary" asChild>
                   <Link href="/marketplace">Browse Marketplace</Link>
                 </Button>

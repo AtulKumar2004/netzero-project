@@ -1,8 +1,8 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongoose';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/auth';
-
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
