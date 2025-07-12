@@ -17,12 +17,13 @@ import {
   Package,
   MapPin
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 const marketplaceItems = [
   {
     id: 1,
     name: 'Vintage Denim Jacket',
-    brand: 'Levi\'s',
+    brand: 'Levi's',
     originalPrice: 89.99,
     discountedPrice: 34.99,
     condition: 'Like New',
@@ -117,6 +118,8 @@ export default function Marketplace() {
   const [priceRange, setPriceRange] = useState([0, 300]);
   const [selectedCondition, setSelectedCondition] = useState('all');
   const [filteredItems, setFilteredItems] = useState(marketplaceItems);
+  const [cartItems, setCartItems] = useState<any[]>([]); // New state for cart items
+  const { toast } = useToast(); // Initialize useToast hook
 
   const categories = ['all', 'Clothing', 'Electronics', 'Shoes', 'Home', 'Sports', 'Accessories'];
   const conditions = ['all', 'Like New', 'Very Good', 'Good', 'Fair'];
@@ -144,6 +147,14 @@ export default function Marketplace() {
     );
 
     setFilteredItems(filtered);
+  };
+
+  const handleAddToCart = (item: any) => {
+    setCartItems((prevItems) => [...prevItems, item]);
+    toast({
+      title: "Item Added to Cart",
+      description: `${item.name} has been added to your cart.`,
+    });
   };
 
   const getConditionColor = (condition: string) => {
@@ -303,7 +314,7 @@ export default function Marketplace() {
                   </div>
                   
                   <div className="flex gap-2 pt-2">
-                    <Button className="flex-1">
+                    <Button className="flex-1" onClick={() => handleAddToCart(item)}>
                       <ShoppingCart className="h-4 w-4 mr-2" />
                       Add to Cart
                     </Button>

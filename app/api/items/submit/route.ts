@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import cloudinary from '@/lib/cloudinary';
 import { verifyToken } from '@/lib/auth';
-import { connectDB } from '@/lib/mongoose';
-import { Item } from '@/lib/schemas/item';
-import { User } from '@/lib/schemas/user';
+import connectDB from '@/lib/mongoose';
+import Item from '@/lib/models/Item';
+import User from '@/lib/models/User';
 import { ObjectId } from 'mongodb';
 
 export async function POST(request: NextRequest) {
@@ -17,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
 
-    // Get all text fields
+    // Parse fields
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
     const brand = formData.get('brand') as string;
@@ -41,38 +40,19 @@ export async function POST(request: NextRequest) {
       contactPhone: formData.get('contactPhone') as string,
     };
 
-    // ✅ Handle file uploads
-    const imageFiles = formData.getAll('images') as File[];
-    if (imageFiles.length < 1 || imageFiles.length > 10) {
-      return NextResponse.json({ error: 'Must upload 1–10 images.' }, { status: 400 });
+    // ✅ Parse pre-uploaded image metadata
+    const imagesField = formData.get('images') as string;
+    const uploadedImages = JSON.parse(imagesField);
+
+    if (!Array.isArray(uploadedImages) || uploadedImages.length < 1 || uploadedImages.length > 10) {
+      return NextResponse.json({ error: 'Must include 1–10 uploaded images.' }, { status: 400 });
     }
 
-    const uploadedImages = [];
-
-    for (const file of imageFiles) {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64String = `data:${file.type};base64,${buffer.toString('base64')}`;
-
-      const uploaded = await cloudinary.uploader.upload(base64String, {
-        folder: 'items',
-      });
-
-      uploadedImages.push({
-        url: uploaded.secure_url,
-        publicId: uploaded.public_id,
-        format: uploaded.format,
-        width: uploaded.width,
-        height: uploaded.height,
-        name: file.name,
-        size: file.size,
-      });
-    }
-
-    // ✅ Create item
+    // ✅ Calculate impact
     const impactMetrics = calculateImpactMetrics(category, condition);
 
-    const itemData = {
+    // ✅ Create item
+    const item = new Item({
       submitterId: new ObjectId(user.userId),
       title,
       description,
@@ -87,13 +67,12 @@ export async function POST(request: NextRequest) {
       pickupPreferences,
       impactMetrics,
       marketplaceData: destination === 'resale' ? { isListed: false, views: 0, favorites: 0 } : undefined,
-    };
+    });
 
-    const newItem = new Item(itemData);
-    await newItem.save();
+    await item.save();
 
     const updatedUser = await User.findByIdAndUpdate(
-      new ObjectId(user.userId),
+      user.userId,
       {
         $inc: {
           'stats.itemsSubmitted': 1,
@@ -101,21 +80,21 @@ export async function POST(request: NextRequest) {
           'stats.ecoPoints': Math.floor(impactMetrics.co2Saved * 10),
         },
       },
-      { new: true, runValidators: true }
+      { new: true }
     );
 
     return NextResponse.json(
       {
         success: true,
         message: 'Item submitted successfully',
-        item: newItem,
+        item,
         updatedUserStats: updatedUser?.stats,
       },
       { status: 201 }
     );
   } catch (error: any) {
     console.error('Item submission error:', error);
-    return NextResponse.json({ error: 'Internal Server Error', details: error }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', details: error?.message || error }, { status: 500 });
   }
 }
 

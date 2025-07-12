@@ -126,14 +126,24 @@ const ItemSchema = new Schema<IItem>({
     }
   },
   images: {
-    type: [String],
+    type: [
+      {
+        url: { type: String, required: true },
+        publicId: { type: String, required: true },
+        format: String,
+        width: Number,
+        height: Number,
+        name: String,
+        size: Number,
+      }
+    ],
     required: [true, 'At least one image is required'],
     validate: {
-      validator: function(v: string[]) {
+      validator: function (v: any[]) {
         return v && v.length > 0 && v.length <= 10;
       },
-      message: 'Must have between 1 and 10 images'
-    }
+      message: 'Must have between 1 and 10 images',
+    },
   },
   imagePublicIds: [String],
   receiptImage: String,
