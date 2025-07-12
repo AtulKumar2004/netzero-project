@@ -17,7 +17,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/portal';
-  const { user, loading } = useAuth(); // Use the useAuth hook
+  const { user, loading, login } = useAuth(); // Use the useAuth hook
 
   const [formData, setFormData] = useState({
     email: '',
@@ -44,38 +44,26 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.email || !formData.password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
     setLocalLoading(true);
     setError('');
 
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Login successful!');
-        // Redirect based on role or redirect parameter
-        const redirectPath = redirectTo !== '/portal' ? redirectTo :
-                           data.user.role === 'customer' ? '/portal/customer' : 
-                           data.user.role === 'retailer' ? '/portal/retailer' : 
-                           data.user.role === 'ngo' ? '/portal/ngo' : '/portal';
-        router.push(redirectPath);
-        router.refresh();
-      } else {
-        setError(data.error || 'Login failed');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('Network error. Please try again.');
-    } finally {
-      setLocalLoading(false);
+    const success = await login(formData.email, formData.password);
+    
+    if (success && user) {
+      // Redirect based on role or redirect parameter
+      const redirectPath = redirectTo !== '/portal' ? redirectTo :
+                         user.role === 'customer' ? '/portal/customer' : 
+                         user.role === 'retailer' ? '/portal/retailer' : 
+                         user.role === 'ngo' ? '/portal/ngo' : '/portal';
+      router.push(redirectPath);
     }
+    
+    setLocalLoading(false);
   };
 
   // Do not render the login form if already loading or user is logged in

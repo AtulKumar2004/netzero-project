@@ -3,13 +3,30 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import type { User } from '../lib/schemas/user';
+
+interface User {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  role: 'customer' | 'retailer' | 'ngo' | 'admin';
+  profileImage?: string;
+  stats: {
+    itemsSubmitted: number;
+    itemsDonated: number;
+    itemsResold: number;
+    co2Saved: number;
+    revenueGenerated: number;
+    ecoPoints: number;
+  };
+}
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: User) => Promise<boolean>;
+  register: (userData: any) => Promise<boolean>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<boolean>;
   refreshUser: () => Promise<void>;
@@ -64,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (userData: User): Promise<boolean> => {
+  const register = async (userData: any): Promise<boolean> => {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',

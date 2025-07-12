@@ -1,8 +1,6 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +9,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Recycle, User, LogOut, Settings, BarChart3 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  User, 
+  Settings, 
+  LogOut, 
+  Recycle, 
+  Store, 
+  Heart,
+  Package,
+  Leaf,
+  Star
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -23,11 +31,14 @@ interface User {
   firstName: string;
   lastName: string;
   fullName: string;
-  role: string;
+  role: 'customer' | 'retailer' | 'ngo' | 'admin';
   profileImage?: string;
   stats: {
     itemsSubmitted: number;
+    itemsDonated: number;
+    itemsResold: number;
     co2Saved: number;
+    revenueGenerated: number;
     ecoPoints: number;
   };
 }
@@ -72,6 +83,15 @@ export default function Navigation() {
     }
   };
 
+  const getPortalLink = (role: string) => {
+    switch (role) {
+      case 'customer': return '/portal/customer';
+      case 'retailer': return '/portal/retailer';
+      case 'ngo': return '/portal/ngo';
+      default: return '/portal';
+    }
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'customer': return 'bg-blue-100 text-blue-800';
@@ -82,17 +102,17 @@ export default function Navigation() {
     }
   };
 
-  const getPortalLink = (role: string) => {
+  const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'customer': return '/portal/customer';
-      case 'retailer': return '/portal/retailer';
-      case 'ngo': return '/portal/ngo';
-      default: return '/portal';
+      case 'customer': return User;
+      case 'retailer': return Store;
+      case 'ngo': return Heart;
+      default: return User;
     }
   };
 
   return (
-    <nav className="border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-50">
+    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -108,14 +128,11 @@ export default function Navigation() {
             <Link href="/marketplace" className="text-muted-foreground hover:text-foreground transition-colors">
               Marketplace
             </Link>
-            <Link href="/portal" className="text-muted-foreground hover:text-foreground transition-colors">
-              Portal
-            </Link>
             <Link href="/#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
               How It Works
             </Link>
-            <Link href="/#impact" className="text-muted-foreground hover:text-foreground transition-colors">
-              Impact
+            <Link href="/portal" className="text-muted-foreground hover:text-foreground transition-colors">
+              Portals
             </Link>
           </div>
 
@@ -123,7 +140,7 @@ export default function Navigation() {
           <div className="flex items-center gap-4">
             {loading ? (
               <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
-            ) : user && !loading ? (
+            ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -147,45 +164,64 @@ export default function Navigation() {
                       <p className="text-xs leading-none text-muted-foreground">
                         {user.email}
                       </p>
-                      <div className="grid grid-cols-3 gap-2 pt-2">
-                        <div className="text-center">
-                          <div className="text-sm font-semibold">{user.stats.itemsSubmitted}</div>
-                          <div className="text-xs text-muted-foreground">Items</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-semibold">{user.stats.co2Saved}kg</div>
-                          <div className="text-xs text-muted-foreground">CO2 Saved</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm font-semibold">{user.stats.ecoPoints}</div>
-                          <div className="text-xs text-muted-foreground">Eco Points</div>
-                        </div>
-                      </div>
                     </div>
                   </DropdownMenuLabel>
+                  
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href={getPortalLink(user.role)}>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>My Portal</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Profile Settings</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/analytics">
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      <span>My Impact</span>
-                    </Link>
-                  </DropdownMenuItem>
+                  
+                  {/* User Stats */}
+                  <div className="p-2">
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Package className="h-3 w-3 text-blue-500" />
+                        <span>{user.stats.itemsSubmitted} items</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Leaf className="h-3 w-3 text-green-500" />
+                        <span>{user.stats.co2Saved.toFixed(1)} kg CO2</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Heart className="h-3 w-3 text-pink-500" />
+                        <span>{user.stats.itemsDonated} donated</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3 w-3 text-yellow-500" />
+                        <span>{user.stats.ecoPoints} points</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+
+                  <DropdownMenuItem asChild>
+                    <Link href={getPortalLink(user.role)} className="flex items-center gap-2">
+                      {(() => {
+                        const Icon = getRoleIcon(user.role);
+                        return <Icon className="h-4 w-4" />;
+                      })()}
+                      My Portal
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
+                    <LogOut className="h-4 w-4" />
+                    Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

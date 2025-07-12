@@ -37,7 +37,7 @@ const roleOptions = [
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { user, loading } = useAuth(); // Use the useAuth hook
+  const { user, loading, register } = useAuth(); // Use the useAuth hook
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -117,40 +117,18 @@ export default function RegisterPage() {
     setLocalLoading(true);
     setErrors([]);
 
-    try {
-      const { confirmPassword, ...submitData } = formData;
-      
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success('Account created successfully!');
-        // Redirect based on role
-        const redirectPath = data.user.role === 'customer' ? '/portal/customer' : 
-                           data.user.role === 'retailer' ? '/portal/retailer' : 
-                           data.user.role === 'ngo' ? '/portal/ngo' : '/portal';
-        router.push(redirectPath);
-        router.refresh();
-      } else {
-        if (data.details && Array.isArray(data.details)) {
-          setErrors(data.details);
-        } else {
-          setErrors([data.error || 'Registration failed']);
-        }
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      setErrors(['Network error. Please try again.']);
-    } finally {
-      setLocalLoading(false);
+    const { confirmPassword, ...submitData } = formData;
+    const success = await register(submitData);
+    
+    if (success && user) {
+      // Redirect based on role
+      const redirectPath = user.role === 'customer' ? '/portal/customer' : 
+                         user.role === 'retailer' ? '/portal/retailer' : 
+                         user.role === 'ngo' ? '/portal/ngo' : '/portal';
+      router.push(redirectPath);
     }
+    
+    setLocalLoading(false);
   };
 
   // Do not render the registration form if already loading or user is logged in
