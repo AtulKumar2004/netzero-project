@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   User, 
   Settings, 
   LogOut, 
@@ -21,13 +21,15 @@ import {
   Heart,
   Package,
   Leaf,
-  Star
+  Star,
+  ShoppingCart
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import useCart from '@/hooks/use-cart';
 
-interface User {
+interface UserProps {
   _id: string;
   email: string;
   firstName: string;
@@ -41,14 +43,15 @@ interface User {
     itemsResold: number;
     co2Saved: number;
     revenueGenerated: number;
-    ecoPoints: number;
+    ecoPoints: number
   };
 }
 
 export default function Navigation() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProps | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { cartItems } = useCart();
 
   useEffect(() => {
     checkAuthStatus();
@@ -143,90 +146,100 @@ export default function Navigation() {
             {loading ? (
               <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
             ) : user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={user.profileImage} alt={user.fullName} />
-                      <AvatarFallback>
-                        {user.firstName[0]}{user.lastName[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-80" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium leading-none">{user.fullName}</p>
-                        <Badge className={getRoleColor(user.role)} variant="secondary">
-                          {user.role}
-                        </Badge>
+              <div className="flex items-center gap-4">
+                <Link href="/cart" className="relative">
+                  <ShoppingCart className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+                  {cartItems && cartItems.length > 0 && (
+                    <span className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-secondary text-secondary-foreground text-xs font-bold flex items-center justify-center">
+                      {cartItems.length}
+                    </span>
+                  )}
+                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={user.profileImage} alt={user.fullName} />
+                        <AvatarFallback>
+                          {user.firstName[0]}{user.lastName[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-80" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium leading-none">{user.fullName}</p>
+                          <Badge className={getRoleColor(user.role)} variant="secondary">
+                            {user.role}
+                          </Badge>
+                        </div>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user.email}
+                        </p>
                       </div>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user.email}
-                      </p>
+                    </DropdownMenuLabel>
+
+                    <DropdownMenuSeparator />
+
+                    {/* User Stats */}
+                    <div className="p-2">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center gap-1">
+                          <Package className="h-3 w-3 text-blue-500" />
+                          <span>{user.stats.itemsSubmitted} items</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Leaf className="h-3 w-3 text-green-500" />
+                          <span>{user.stats.co2Saved.toFixed(1)} kg CO2</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Heart className="h-3 w-3 text-pink-500" />
+                          <span>{user.stats.itemsDonated} donated</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Star className="h-3 w-3 text-yellow-500" />
+                          <span>{user.stats.ecoPoints} points</span>
+                        </div>
+                      </div>
                     </div>
-                  </DropdownMenuLabel>
-                  
-                  <DropdownMenuSeparator />
-                  
-                  {/* User Stats */}
-                  <div className="p-2">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3 text-blue-500" />
-                        <span>{user.stats.itemsSubmitted} items</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Leaf className="h-3 w-3 text-green-500" />
-                        <span>{user.stats.co2Saved.toFixed(1)} kg CO2</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Heart className="h-3 w-3 text-pink-500" />
-                        <span>{user.stats.itemsDonated} donated</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 text-yellow-500" />
-                        <span>{user.stats.ecoPoints} points</span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <DropdownMenuSeparator />
+                    <DropdownMenuSeparator />
 
-                  <DropdownMenuItem asChild>
-                    <Link href={getPortalLink(user.role)} className="flex items-center gap-2">
-                      {(() => {
-                        const Icon = getRoleIcon(user.role);
-                        return <Icon className="h-4 w-4" />;
-                      })()}
-                      My Portal
-                    </Link>
-                  </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={getPortalLink(user.role)} className="flex items-center gap-2">
+                        {(() => {
+                          const Icon = getRoleIcon(user.role);
+                          return <Icon className="h-4 w-4" />;
+                        })()}
+                        My Portal
+                      </Link>
+                    </DropdownMenuItem>
 
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile" className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
 
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" className="flex items-center gap-2">
+                        <Settings className="h-4 w-4" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
 
-                  <DropdownMenuSeparator />
+                    <DropdownMenuSeparator />
 
-                  <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
-                    <LogOut className="h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
+                      <LogOut className="h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" asChild>

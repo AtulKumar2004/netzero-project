@@ -5,112 +5,162 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { 
-  Search, 
-  Filter, 
-  Heart, 
-  ShoppingCart, 
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import {
+  Search,
+  Filter,
+  Heart,
+  ShoppingCart,
   Star,
   Leaf,
   Package,
   MapPin
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { toast } from '@/components/ui/use-toast';
+import useCart from '@/hooks/use-cart';
 
-const marketplaceItems = [
-  {
-    id: 1,
-    name: 'Vintage Denim Jacket',
-    brand: 'Levi's',
-    originalPrice: 89.99,
-    discountedPrice: 34.99,
-    condition: 'Like New',
-    category: 'Clothing',
-    seller: 'EcoRetail',
-    location: 'San Francisco, CA',
-    images: ['https://images.pexels.com/photos/1183266/pexels-photo-1183266.jpeg'],
-    rating: 4.8,
-    reviews: 24,
-    sustainability: 'Saves 2.3kg CO2'
-  },
-  {
-    id: 2,
-    name: 'Wireless Bluetooth Headphones',
-    brand: 'Sony',
-    originalPrice: 199.99,
-    discountedPrice: 89.99,
-    condition: 'Good',
-    category: 'Electronics',
-    seller: 'TechReturns',
-    location: 'New York, NY',
-    images: ['https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg'],
-    rating: 4.6,
-    reviews: 18,
-    sustainability: 'Saves 5.7kg CO2'
-  },
-  {
-    id: 3,
-    name: 'Leather Ankle Boots',
-    brand: 'Dr. Martens',
-    originalPrice: 159.99,
-    discountedPrice: 79.99,
-    condition: 'Very Good',
-    category: 'Shoes',
-    seller: 'Fashion Forward',
-    location: 'Los Angeles, CA',
-    images: ['https://images.pexels.com/photos/1464625/pexels-photo-1464625.jpeg'],
-    rating: 4.9,
-    reviews: 31,
-    sustainability: 'Saves 3.2kg CO2'
-  },
-  {
-    id: 4,
-    name: 'Ceramic Coffee Maker',
-    brand: 'Breville',
-    originalPrice: 299.99,
-    discountedPrice: 149.99,
-    condition: 'Like New',
-    category: 'Home',
-    seller: 'HomeGoods Plus',
-    location: 'Chicago, IL',
-    images: ['https://images.pexels.com/photos/6507626/pexels-photo-6507626.jpeg'],
-    rating: 4.7,
-    reviews: 12,
-    sustainability: 'Saves 8.4kg CO2'
-  },
-  {
-    id: 5,
-    name: 'Yoga Mat & Block Set',
-    brand: 'Manduka',
-    originalPrice: 79.99,
-    discountedPrice: 39.99,
-    condition: 'Good',
-    category: 'Sports',
-    seller: 'Wellness Hub',
-    location: 'Austin, TX',
-    images: ['https://images.pexels.com/photos/4056723/pexels-photo-4056723.jpeg'],
-    rating: 4.5,
-    reviews: 8,
-    sustainability: 'Saves 1.8kg CO2'
-  },
-  {
-    id: 6,
-    name: 'Designer Handbag',
-    brand: 'Coach',
-    originalPrice: 349.99,
-    discountedPrice: 179.99,
-    condition: 'Very Good',
-    category: 'Accessories',
-    seller: 'Luxury Resale',
-    location: 'Miami, FL',
-    images: ['https://images.pexels.com/photos/1152077/pexels-photo-1152077.jpeg'],
-    rating: 4.8,
-    reviews: 22,
-    sustainability: 'Saves 4.1kg CO2'
-  }
-];
+interface CartItem {
+    id: number;
+    name: string;
+    brand: string;
+    originalPrice: number;
+    discountedPrice: number;
+    condition: string;
+    category: string;
+    seller: string;
+    location: string;
+    latitude: number;
+    longitude: number;
+    images: string[];
+    rating: number;
+    reviews: number;
+    sustainability: string;
+  
+}
+  const marketplaceItems = [
+    {
+      id: 1,
+      name: 'Vintage Denim Jacket',
+      brand: 'Levis',
+      originalPrice: 89.99,
+      discountedPrice: 34.99,
+      condition: 'Like New',
+      category: 'Clothing',
+      seller: 'EcoRetail',
+      location: 'San Francisco, CA',
+      latitude: 37.7749,
+      longitude: -122.4194,
+      images: ['https://images.pexels.com/photos/1183266/pexels-photo-1183266.jpeg'],
+      rating: 4.8,
+      reviews: 24,
+      sustainability: 'Saves 2.3kg CO2'
+    },
+    {
+      id: 2,
+      name: 'Wireless Bluetooth Headphones',
+      brand: 'Sony',
+      originalPrice: 199.99,
+      discountedPrice: 89.99,
+      condition: 'Good',
+      category: 'Electronics',
+      seller: 'TechReturns',
+      location: 'New York, NY',
+      latitude: 40.7128,
+      longitude: -74.0060,
+      images: ['https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg'],
+      rating: 4.6,
+      reviews: 18,
+      sustainability: 'Saves 5.7kg CO2'
+    },
+    {
+      id: 3,
+      name: 'Leather Ankle Boots',
+      brand: 'Dr. Martens',
+      originalPrice: 159.99,
+      discountedPrice: 79.99,
+      condition: 'Very Good',
+      category: 'Shoes',
+      seller: 'Fashion Forward',
+      location: 'Los Angeles, CA',
+      latitude: 34.0522,
+      longitude: -118.2437,
+      images: ['https://images.pexels.com/photos/1464625/pexels-photo-1464625.jpeg'],
+      rating: 4.9,
+      reviews: 31,
+      sustainability: 'Saves 3.2kg CO2'
+    },
+    {
+      id: 4,
+      name: 'Ceramic Coffee Maker',
+      brand: 'Breville',
+      originalPrice: 299.99,
+      discountedPrice: 149.99,
+      condition: 'Like New',
+      category: 'Home',
+      seller: 'HomeGoods Plus',
+      location: 'Chicago, IL',
+      latitude: 41.8781,
+      longitude: -87.6298,
+      images: ['https://images.pexels.com/photos/6507626/pexels-photo-6507626.jpeg'],
+      rating: 4.7,
+      reviews: 12,
+      sustainability: 'Saves 8.4kg CO2'
+    },
+    {
+      id: 5,
+      name: 'Yoga Mat & Block Set',
+      brand: 'Manduka',
+      originalPrice: 79.99,
+      discountedPrice: 39.99,
+      condition: 'Good',
+      category: 'Sports',
+      seller: 'Wellness Hub',
+      location: 'Austin, TX',
+      latitude: 30.2672,
+      longitude: -97.7431,
+      images: ['https://images.pexels.com/photos/4056723/pexels-photo-4056723.jpeg'],
+      rating: 4.5,
+      reviews: 8,
+      sustainability: 'Saves 1.8kg CO2'
+    },
+    {
+      id: 6,
+      name: 'Designer Handbag',
+      brand: 'Coach',
+      originalPrice: 349.99,
+      discountedPrice: 179.99,
+      condition: 'Very Good',
+      category: 'Accessories',
+      seller: 'Luxury Resale',
+      location: 'Miami, FL',
+      latitude: 25.7617,
+      longitude: -80.1918,
+      images: ['https://images.pexels.com/photos/1152077/pexels-photo-1152077.jpeg'],
+      rating: 4.8,
+      reviews: 22,
+      sustainability: 'Saves 4.1kg CO2'
+    }
+  ];
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '400px',
+  borderRadius: '8px',
+  marginBottom: '24px'
+};
+
+const defaultCenter = {
+  lat: 34.052235,
+  lng: -118.243683
+};
 
 export default function Marketplace() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,8 +168,8 @@ export default function Marketplace() {
   const [priceRange, setPriceRange] = useState([0, 300]);
   const [selectedCondition, setSelectedCondition] = useState('all');
   const [filteredItems, setFilteredItems] = useState(marketplaceItems);
-  const [cartItems, setCartItems] = useState<any[]>([]); // New state for cart items
-  const { toast } = useToast(); // Initialize useToast hook
+  const { cartItems, addToCart } = useCart();
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
   const categories = ['all', 'Clothing', 'Electronics', 'Shoes', 'Home', 'Sports', 'Accessories'];
   const conditions = ['all', 'Like New', 'Very Good', 'Good', 'Fair'];
@@ -149,10 +199,9 @@ export default function Marketplace() {
     setFilteredItems(filtered);
   };
 
-  const handleAddToCart = (item: any) => {
-    setCartItems((prevItems) => [...prevItems, item]);
-    toast({
-      title: "Item Added to Cart",
+  const handleAddToCart = (item: CartItem) => {
+    addToCart(item);
+    toast.success("Item Added to Cart", {
       description: `${item.name} has been added to your cart.`,
     });
   };
@@ -169,6 +218,13 @@ export default function Marketplace() {
 
   const getSavingsPercentage = (original: number, discounted: number) => {
     return Math.round(((original - discounted) / original) * 100);
+  };
+
+  const handleViewDetails = (item: any) => {
+    setSelectedItem(item);
+    toast.message(item.name, {
+      description: `More details for ${item.name} will be shown here.`
+    });
   };
 
   return (
@@ -239,6 +295,30 @@ export default function Marketplace() {
           </CardContent>
         </Card>
 
+        {/* Google Map Integration */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Item Locations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <LoadScript googleMapsApiKey="YOUR_GOOGLE_MAPS_API_KEY">
+              <GoogleMap
+                mapContainerStyle={mapContainerStyle}
+                center={defaultCenter}
+                zoom={10}
+              >
+                {filteredItems.map(item => (
+                  <Marker
+                    key={item.id}
+                    position={{ lat: item.latitude, lng: item.longitude }}
+                    title={item.name}
+                  />
+                ))}
+              </GoogleMap>
+            </LoadScript>
+          </CardContent>
+        </Card>
+
         {/* Results */}
         <div className="mb-6">
           <p className="text-muted-foreground">
@@ -246,9 +326,11 @@ export default function Marketplace() {
           </p>
         </div>
 
+
+
         {/* Items Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item) => (
+          {filteredItems.map(item => (
             <Card key={item.id} className="hover:shadow-lg transition-shadow">
               <div className="relative">
                 <img
@@ -267,7 +349,7 @@ export default function Marketplace() {
                   </Badge>
                 </div>
               </div>
-              
+
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div>
@@ -279,9 +361,10 @@ export default function Marketplace() {
                   </Badge>
                 </div>
               </CardHeader>
-              
+
               <CardContent>
                 <div className="space-y-3">
+                  {/* Price and Rating */}
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-2xl font-bold text-primary">
@@ -297,28 +380,30 @@ export default function Marketplace() {
                       <span className="text-sm text-muted-foreground">({item.reviews})</span>
                     </div>
                   </div>
-                  
+
+                  {/* Seller Info */}
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Package className="h-4 w-4" />
                     <span>{item.seller}</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-4 w-4" />
                     <span>{item.location}</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 text-sm text-green-600">
                     <Leaf className="h-4 w-4" />
                     <span>{item.sustainability}</span>
                   </div>
-                  
+
+                  {/* Actions */}
                   <div className="flex gap-2 pt-2">
                     <Button className="flex-1" onClick={() => handleAddToCart(item)}>
                       <ShoppingCart className="h-4 w-4 mr-2" />
                       Add to Cart
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleViewDetails(item)}>
                       View Details
                     </Button>
                   </div>
@@ -327,18 +412,6 @@ export default function Marketplace() {
             </Card>
           ))}
         </div>
-
-        {filteredItems.length === 0 && (
-          <Card className="text-center py-16">
-            <CardContent>
-              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No items found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search criteria or browse all categories
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );
