@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
 
     if (status === 'available') {
       query.status = { $in: ['submitted', 'reviewed', 'approved'] };
+      query.destinationId = { $exists: false }; // Not yet claimed by any NGO
     } else if (status === 'assigned') {
       query.destinationId = new ObjectId(user.userId);
       query.status = { $in: ['approved', 'processing', 'completed'] };
