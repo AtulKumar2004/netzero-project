@@ -25,96 +25,40 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
 import useCart from '@/hooks/use-cart';
 
-interface UserProps {
-  _id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  fullName: string;
-  role: 'customer' | 'retailer' | 'ngo' | 'admin';
-  profileImage?: string;
-  stats: {
-    itemsSubmitted: number;
-    itemsDonated: number;
-    itemsResold: number;
-    co2Saved: number;
-    revenueGenerated: number;
-    ecoPoints: number
-  };
-}
+const getPortalLink = (role: string) => {
+  switch (role) {
+    case 'customer': return '/portal/customer';
+    case 'retailer': return '/portal/retailer';
+    case 'ngo': return '/portal/ngo';
+    default: return '/portal';
+  }
+};
+
+const getRoleColor = (role: string) => {
+  switch (role) {
+    case 'customer': return 'bg-blue-100 text-blue-800';
+    case 'retailer': return 'bg-green-100 text-green-800';
+    case 'ngo': return 'bg-purple-100 text-purple-800';
+    case 'admin': return 'bg-red-100 text-red-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getRoleIcon = (role: string) => {
+  switch (role) {
+    case 'customer': return User;
+    case 'retailer': return Store;
+    case 'ngo': return Heart;
+    default: return User;
+  }
+};
 
 export default function Navigation() {
-  const [user, setUser] = useState<UserProps | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+  const { user, loading, logout } = useAuth();
   const { cartItems } = useCart();
-
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        setUser(null);
-        toast.success('Logged out successfully');
-        router.push('/');
-        router.refresh();
-      }
-    } catch (error) {
-      toast.error('Logout failed');
-    }
-  };
-
-  const getPortalLink = (role: string) => {
-    switch (role) {
-      case 'customer': return '/portal/customer';
-      case 'retailer': return '/portal/retailer';
-      case 'ngo': return '/portal/ngo';
-      default: return '/portal';
-    }
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'customer': return 'bg-blue-100 text-blue-800';
-      case 'retailer': return 'bg-green-100 text-green-800';
-      case 'ngo': return 'bg-purple-100 text-purple-800';
-      case 'admin': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'customer': return User;
-      case 'retailer': return Store;
-      case 'ngo': return Heart;
-      default: return User;
-    }
-  };
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -233,7 +177,7 @@ export default function Navigation() {
 
                     <DropdownMenuSeparator />
 
-                    <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-red-600">
+                    <DropdownMenuItem onClick={logout} className="flex items-center gap-2 text-red-600">
                       <LogOut className="h-4 w-4" />
                       Log out
                     </DropdownMenuItem>

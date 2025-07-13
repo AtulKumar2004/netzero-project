@@ -94,22 +94,31 @@ export default function NGOPortal() {
   }, [statusFilter, categoryFilter, locationFilter]);
 
   const fetchItems = async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       if (statusFilter !== "all") params.append("status", statusFilter);
       if (categoryFilter !== "all") params.append("category", categoryFilter);
       if (locationFilter) params.append("location", locationFilter);
       
-      const response = await fetch(`/api/ngo/donations?${params}`)
+      const response = await fetch(`/api/ngo/donations?${params}`, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.statusText}`);
+      }
+
       const data = await response.json();
 
-      if (response.ok) {
+      if (Array.isArray(data.items)) {
         setItems(data.items);
       } else {
-        toast.error(data.error || "Failed to fetch donations");
+        console.error("API did not return an array of items:", data);
+        setItems([]);
+        toast.error("Received invalid data from server.");
       }
     } catch (error) {
-      toast.error("Failed to fetch donations");
+      console.error("Failed to fetch donations:", error);
+      toast.error("Failed to fetch donations. Please try again.");
+      setItems([]); // Ensure items is an array on error
     } finally {
       setLoading(false);
     }
@@ -339,23 +348,25 @@ export default function NGOPortal() {
               <CardContent>
                 {analytics && (
                   <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span>Completion Rate</span>
-                      <span className="font-semibold">
-                        {analytics.overview.completionRate}%
-                      </span>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-green-600 mb-1">
+                        {analytics.overview.totalImpact} kg
+                      </div>
+                      <p className="text-sm text-muted-foreground">Total CO2 Saved</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Total Weight</span>
-                      <span className="font-semibold">
+
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-600 mb-1">
                         {analytics.overview.totalWeight} kg
-                      </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Waste Diverted</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Pending Items</span>
-                      <span className="font-semibold">
-                        {analytics.overview.pendingDonations}
-                      </span>
+
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-purple-600 mb-1">
+                        {analytics.overview.completionRate}%
+                      </div>
+                      <p className="text-sm text-muted-foreground">Success Rate</p>
                     </div>
                   </div>
                 )}
@@ -394,6 +405,7 @@ export default function NGOPortal() {
                       <SelectItem value="electronics">Electronics</SelectItem>
                       <SelectItem value="home">Home</SelectItem>
                       <SelectItem value="books">Books</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -492,59 +504,62 @@ export default function NGOPortal() {
               )}
 
                 <div className="space-y-4">
-                  {items.map((item) => (
-                    <div key={item._id} className="border rounded-lg p-4">
-                      <div className="flex items-start gap-4">
-                        <Checkbox
-                          checked={selectedItems.includes(item._id)}
-                          onCheckedChange={() => toggleItemSelection(item._id)}
-                        />
-
-                        {item.images[0] && (
-                          <img
-                            src={item.images[0]}
-                            alt={item.title}
-                            className="w-16 h-16 object-cover rounded-lg"
+                {loading ? (
+                  <p>Loading...</p>
+                ) : (
+                  items.length > 0 ? (
+                    items.map((item) => (
+                      <div key={item._id} className="border rounded-lg p-4">
+                        <div className="flex items-start gap-4">
+                          <Checkbox
+                            checked={selectedItems.includes(item._id)}
+                            onCheckedChange={() => toggleItemSelection(item._id)}
                           />
-                        )}
 
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className="font-semibold">{item.title}</h4>
-                              <p className="text-sm text-muted-foreground">{item.brand}</p>
-                              <p className="text-sm text-muted-foreground">{item.category}</p>
+                          {item.images[0] && (
+                            <img
+                              src={item.images[0]}
+                              alt={item.title}
+                              className="w-16 h-16 object-cover rounded-lg"
+                            />
+                          )}
+
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <h4 className="font-semibold">{item.title}</h4>
+                                <p className="text-sm text-muted-foreground">{item.brand}</p>
+                                <p className="text-sm text-muted-foreground">{item.category}</p>
+                              </div>
+                              <Badge className={getStatusColor(item.status)}>
+                                {item.status}
+                              </Badge>
                             </div>
-                            <Badge className={getStatusColor(item.status)}>
-                              {item.status}
-                            </Badge>
-                          </div>
 
-                          <p className="text-sm mb-2">{item.description}</p>
+                            <p className="text-sm mb-2">{item.description}</p>
 
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Condition:</span> {item.condition}
-                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Condition:</span> {item.condition}
+                              </div>
                             <div>
                               <span className="text-muted-foreground">Impact:</span> {item.impactMetrics.co2Saved} kg CO2
                             </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              <span>{item.pickupAddress.city}, {item.pickupAddress.state}</span>
-                            </div>
-                            {item.submitter && (
-                              <div>
-                                <span className="text-muted-foreground">Contact:</span> {item.submitter.phone}
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                <span>{item.pickupAddress.city}, {item.pickupAddress.state}</span>
                               </div>
-                            )}
+                              {item.submitter && (
+                                <div>
+                                  <span className="text-muted-foreground">Contact:</span> {item.submitter.phone}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-
-                  {items.length === 0 && (
+                    ))
+                  ) : (
                     <div className="text-center py-8">
                       <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <h3 className="text-lg font-semibold mb-2">No donations found</h3>
@@ -552,8 +567,9 @@ export default function NGOPortal() {
                         No donations match your current filter criteria
                       </p>
                     </div>
-                  )}
-                </div>
+                  )
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

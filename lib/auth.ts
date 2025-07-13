@@ -12,7 +12,7 @@ export interface TokenPayload {
 
 export interface AuthUser {
   userId: string;
-  role: 'ngo' | 'donor' | 'admin'; // or whatever roles you use
+  role: 'ngo' | 'donor' | 'admin' | 'retailer'; // or whatever roles you use
   email: string;
 }
 

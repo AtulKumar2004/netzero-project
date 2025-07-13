@@ -25,8 +25,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: any) => Promise<boolean>;
+  login: (email: string, password:string) => Promise<User | null>;
+  register: (userData: any) => Promise<User | null>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<boolean>;
   refreshUser: () => Promise<void>;
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<User | null> => {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -69,19 +69,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         setUser(data.user);
+        router.refresh();
         toast.success('Login successful!');
-        return true;
+        return data.user;
       } else {
         toast.error(data.error || 'Login failed');
-        return false;
+        return null;
       }
     } catch (error) {
       toast.error('Network error. Please try again.');
-      return false;
+      return null;
     }
   };
 
-  const register = async (userData: any): Promise<boolean> => {
+  const register = async (userData: any): Promise<User | null> => {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -93,19 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         setUser(data.user);
+        router.refresh();
         toast.success('Account created successfully!');
-        return true;
+        return data.user;
       } else {
         if (Array.isArray(data.details)) {
           data.details.forEach((error: string) => toast.error(error));
         } else {
           toast.error(data.error || 'Registration failed');
         }
-        return false;
+        return null;
       }
     } catch (error) {
       toast.error('Network error. Please try again.');
-      return false;
+      return null;
     }
   };
 
@@ -117,12 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         setUser(null);
-        toast.success('Logged out successfully');
         router.push('/');
-        router.refresh();
+        toast.success('Logged out successfully');
+      } else {
+        toast.error('Logout failed');
       }
     } catch (error) {
-      toast.error('Logout failed');
+      toast.error('Network error. Please try again.');
     }
   };
 

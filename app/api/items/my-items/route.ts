@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongoose';
 import Item from '@/lib/models/Item';
 import { verifyToken } from '@/lib/auth';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
 
     // Build query for user's items
-    const query: any = { submitterId: user.userId };
+    const query: any = { 
+      submitterId: new ObjectId(user.userId) 
+    };
     
     if (status && status !== 'all') {
       query.status = status;

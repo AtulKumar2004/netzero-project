@@ -3,6 +3,7 @@ import { getDatabase } from '@/lib/mongodb';
 import { Item } from '@/lib/schemas/item';
 import { ObjectId } from 'mongodb';
 import { verifyToken } from '@/lib/auth';
+import User from '@/lib/models/User'; // Import User model to populate submitter info
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,82 +17,91 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const status = searchParams.get('status') || 'available';
-    const category = searchParams.get('category');
-    const location = searchParams.get('location');
-
     const db = await getDatabase();
     const itemsCollection = db.collection<Item>('items');
 
-    // Build query for available donations
-    let query: any = {
-      destination: 'donate',
+    const { searchParams } = new URL(request.url);
+    const statusFilter = searchParams.get('status');
+    const categoryFilter = searchParams.get('category');
+    const locationFilter = searchParams.get('location'); // Assuming this is city or zipCode
+
+    const query: any = {
+      destination: 'donate', // Only show items intended for donation
     };
 
-    if (status === 'available') {
+    if (statusFilter && statusFilter !== 'all') {
+      // Allow NGOs to see submitted, reviewed, approved, processing items for their dashboard
+      const validNgoStatuses = ['submitted', 'reviewed', 'approved', 'collected', 'processing'];
+      if (validNgoStatuses.includes(statusFilter)) {
+        query.status = statusFilter;
+      } else if (statusFilter === 'available') {
+        // 'available' could mean submitted or approved, not yet claimed/processed by THIS NGO
+        query.status = { $in: ['submitted', 'reviewed', 'approved'] };
+      } else if (statusFilter === 'assigned') {
+        query.status = { $in: ['approved', 'processing', 'collected'] };
+        query.destinationId = new ObjectId(user.userId);
+      } else if (statusFilter === 'completed') {
+        query.status = 'completed';
+        query.destinationId = new ObjectId(user.userId);
+      }
+    } else {
+      // Default to showing items that are ready for pickup or review by any NGO
       query.status = { $in: ['submitted', 'reviewed', 'approved'] };
-      query.destinationId = { $exists: false }; // Not yet claimed by any NGO
-    } else if (status === 'assigned') {
-      query.destinationId = new ObjectId(user.userId);
-      query.status = { $in: ['approved', 'processing', 'completed'] };
-    } else if (status === 'processing') {
-      query.destinationId = new ObjectId(user.userId);
-      query.status = 'processing';
-    } else if (status === 'completed') {
-      query.destinationId = new ObjectId(user.userId);
-      query.status = 'completed';
-    } else if (status && status !== 'all') {
-      query.status = status;
     }
 
-    if (category) {
-      query.category = category;
+    if (categoryFilter && categoryFilter !== 'all') {
+      query.category = categoryFilter;
     }
 
-    if (location) {
-      query['pickupAddress.city'] = { $regex: location, $options: 'i' };
+    if (locationFilter) {
+      // This is a simplified location filter, might need more robust geo-query for production
+      query['pickupAddress.city'] = new RegExp(locationFilter, 'i'); // Case-insensitive city match
     }
 
-    const total = await itemsCollection.countDocuments(query);
-    const items = await itemsCollection
-      .find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
-
-    // Populate submitter information
-    const usersCollection = db.collection('users');
-    const itemsWithSubmitters = await Promise.all(
-      items.map(async (item) => {
-        const submitter = await usersCollection.findOne(
-          { _id: item.submitterId },
-          { projection: { firstName: 1, lastName: 1, phone: 1 } }
-        );
-        return {
-          ...item,
-          submitter: submitter ? {
-            name: `${submitter.firstName} ${submitter.lastName}`,
-            phone: submitter.phone,
-          } : null,
-        };
-      })
-    );
-
-    return NextResponse.json({
-      items: itemsWithSubmitters,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
+    const items = await itemsCollection.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } }, // Latest items first
+      { $limit: 20 }, // Limit to 20 items for now
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'submitterId',
+          foreignField: '_id',
+          as: 'submitterInfo',
+        },
       },
-    }, { status: 200 });
+      { $unwind: { path: '$submitterInfo', preserveNullAndEmptyArrays: true } },
+      { 
+        $project: {
+          _id: 1,
+          title: 1,
+          description: 1,
+          brand: 1,
+          category: 1,
+          condition: 1,
+          images: 1,
+          status: 1,
+          pickupAddress: 1,
+          impactMetrics: 1,
+          createdAt: 1,
+          submitter: {
+            name: '$submitterInfo.name',
+            phone: '$submitterInfo.phone',
+            email: '$submitterInfo.email',
+          },
+        },
+      },
+    ]).toArray();
+
+    // If no items match, ensure an empty array is returned, not an object with count
+    if (items.length === 0) {
+      return NextResponse.json({ items: [] }, { status: 200 });
+    }
+
+    return NextResponse.json({ items: items }, { status: 200 });
+
   } catch (error) {
-    console.error('Get NGO donations error:', error);
+    console.error('NGO donation fetch error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -118,7 +128,7 @@ export async function POST(request: NextRequest) {
         { error: 'Item IDs and action are required' },
         { status: 400 }
       );
-    }
+    };
 
     const db = await getDatabase();
     const itemsCollection = db.collection<Item>('items');
@@ -129,8 +139,10 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'claim':
+        // When an NGO claims an item, set its destinationId to the NGO's ID
+        // and change the status to 'approved' or similar, indicating it's taken.
         updateData.destinationId = new ObjectId(user.userId);
-        updateData.status = 'approved';
+        updateData.status = 'approved'; // Or 'assigned', depending on workflow
         updateData.internalNotes = notes;
         break;
 
@@ -142,7 +154,9 @@ export async function POST(request: NextRequest) {
           );
         }
         updateData.pickupDate = new Date(pickupDate);
-        updateData.status = 'processing';
+        updateData.status = 'processing'; // Indicates pickup is being arranged
+        // Ensure the item is assigned to this NGO if it wasn't already
+        updateData.destinationId = new ObjectId(user.userId);
         break;
 
       case 'complete':
@@ -160,14 +174,21 @@ export async function POST(request: NextRequest) {
     const result = await itemsCollection.updateMany(
       {
         _id: { $in: itemIds.map(id => new ObjectId(id)) },
-        destination: 'donate'
+        // Only allow claiming/scheduling for items still intended for donation
+        destination: 'donate',
+        // And only if they are not already completed or claimed by another NGO (unless specific flow allows reassignment)
+        status: { $in: ['submitted', 'reviewed', 'approved', 'processing'] },
+        $or: [
+          { destinationId: { $exists: false } }, // Not yet assigned
+          { destinationId: new ObjectId(user.userId) } // Already assigned to this NGO
+        ]
       },
       { $set: updateData }
     );
 
     if (result.matchedCount === 0) {
       return NextResponse.json(
-        { error: 'No items found or not available for donation' },
+        { error: 'No eligible items found for the requested action, or they are already processed.' },
         { status: 404 }
       );
     }

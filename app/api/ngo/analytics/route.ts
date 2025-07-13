@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const db = await getDatabase();
     const itemsCollection = db.collection('items');
 
-    // Get NGO's donation analytics
+    // Get NGO's donation analytics for items they have claimed
     const donationAnalytics = await itemsCollection.aggregate([
       {
         $match: {
@@ -51,20 +51,19 @@ export async function GET(request: NextRequest) {
           },
           totalImpact: { $sum: '$impactMetrics.co2Saved' },
           totalWeight: { $sum: '$impactMetrics.wasteAverted' },
-          itemsByCategory: { $push: '$category' },
-          itemsByStatus: { $push: '$status' }
         }
       }
     ]).toArray();
 
-    // Get available donations (not yet claimed)
+    // Get available donations (not yet claimed by any NGO)
     const availableDonations = await itemsCollection.countDocuments({
       destination: 'donate',
       status: { $in: ['submitted', 'reviewed', 'approved'] },
-      destinationId: { $exists: false }
+      destinationId: { $exists: false },
+      ...dateFilter
     });
 
-    // Get monthly trends
+    // Get monthly trends for claimed items
     const monthlyTrends = await itemsCollection.aggregate([
       {
         $match: {
@@ -75,12 +74,7 @@ export async function GET(request: NextRequest) {
       },
       {
         $group: {
-          _id: {
-            $dateToString: {
-              format: '%Y-%m',
-              date: '$createdAt'
-            }
-          },
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
           donations: { $sum: 1 },
           impact: { $sum: '$impactMetrics.co2Saved' },
           completed: {
@@ -91,7 +85,7 @@ export async function GET(request: NextRequest) {
       { $sort: { _id: 1 } }
     ]).toArray();
 
-    // Get category breakdown
+    // Get category breakdown for claimed items
     const categoryBreakdown = await itemsCollection.aggregate([
       {
         $match: {
@@ -133,16 +127,20 @@ export async function GET(request: NextRequest) {
       }
     ]).toArray();
 
+    const analyticsData = donationAnalytics[0] || {};
+    const totalClaimedDonations = analyticsData.totalDonations || 0;
+    const completedDonations = analyticsData.completedDonations || 0;
+
     const analytics = {
       overview: {
-        totalDonations: donationAnalytics[0]?.totalDonations || 0,
-        completedDonations: donationAnalytics[0]?.completedDonations || 0,
-        pendingDonations: donationAnalytics[0]?.pendingDonations || 0,
-        availableDonations,
-        totalImpact: Math.round((donationAnalytics[0]?.totalImpact || 0) * 100) / 100,
-        totalWeight: Math.round((donationAnalytics[0]?.totalWeight || 0) * 100) / 100,
-        completionRate: donationAnalytics[0]?.totalDonations > 0 
-          ? ((donationAnalytics[0]?.completedDonations || 0) / donationAnalytics[0].totalDonations * 100).toFixed(1)
+        totalDonations: totalClaimedDonations,
+        completedDonations: completedDonations,
+        pendingDonations: analyticsData.pendingDonations || 0,
+        availableDonations: availableDonations,
+        totalImpact: Math.round((analyticsData.totalImpact || 0) * 100) / 100,
+        totalWeight: Math.round((analyticsData.totalWeight || 0) * 100) / 100,
+        completionRate: totalClaimedDonations > 0 
+          ? ((completedDonations / totalClaimedDonations) * 100).toFixed(1)
           : '0.0'
       },
       pickups: pickupStats[0] || {

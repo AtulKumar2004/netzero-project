@@ -27,10 +27,10 @@ export async function GET(request: NextRequest) {
 
     // Build query for items that need retailer attention
     const query: any = {
+      destination: 'resale',
       $or: [
         { retailerId: new ObjectId(user.userId) },
-        { status: 'submitted', destination: 'resale' },
-        { status: 'reviewed', destination: 'resale' }
+        { retailerId: { $exists: false } }
       ]
     };
 

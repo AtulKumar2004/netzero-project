@@ -27,13 +27,6 @@ export default function LoginPage() {
   const [localLoading, setLocalLoading] = useState(false); // Renamed to avoid conflict
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    // Redirect if user is already logged in and not loading
-    if (!loading && user) {
-      router.push(redirectTo);
-    }
-  }, [user, loading, router, redirectTo]);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
       ...prev,
@@ -52,24 +45,19 @@ export default function LoginPage() {
     setLocalLoading(true);
     setError('');
 
-    const success = await login(formData.email, formData.password);
+    const loggedInUser = await login(formData.email, formData.password);
     
-    if (success && user) {
+    if (loggedInUser) {
       // Redirect based on role or redirect parameter
       const redirectPath = redirectTo !== '/portal' ? redirectTo :
-                         user.role === 'customer' ? '/portal/customer' : 
-                         user.role === 'retailer' ? '/portal/retailer' : 
-                         user.role === 'ngo' ? '/portal/ngo' : '/portal';
+                         loggedInUser.role === 'customer' ? '/portal/customer' : 
+                         loggedInUser.role === 'retailer' ? '/portal/retailer' : 
+                         loggedInUser.role === 'ngo' ? '/portal/ngo' : '/portal';
       router.push(redirectPath);
     }
     
     setLocalLoading(false);
   };
-
-  // Do not render the login form if already loading or user is logged in
-  if (loading || user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">

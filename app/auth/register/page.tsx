@@ -53,17 +53,6 @@ export default function RegisterPage() {
   const [localLoading, setLocalLoading] = useState(false); // Renamed to avoid conflict
   const [errors, setErrors] = useState<string[]>([]);
 
-  useEffect(() => {
-    // Redirect if user is already logged in and not loading
-    if (!loading && user) {
-      // Determine redirect path based on user role, or a default
-      const redirectPath = user.role === 'customer' ? '/portal/customer' : 
-                           user.role === 'retailer' ? '/portal/retailer' : 
-                           user.role === 'ngo' ? '/portal/ngo' : '/portal';
-      router.push(redirectPath);
-    }
-  }, [user, loading, router]);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
       ...prev,
@@ -118,23 +107,18 @@ export default function RegisterPage() {
     setErrors([]);
 
     const { confirmPassword, ...submitData } = formData;
-    const success = await register(submitData);
     
-    if (success && user) {
-      // Redirect based on role
-      const redirectPath = user.role === 'customer' ? '/portal/customer' : 
-                         user.role === 'retailer' ? '/portal/retailer' : 
-                         user.role === 'ngo' ? '/portal/ngo' : '/portal';
+    const registeredUser = await register(submitData);
+
+    if (registeredUser) {
+      const redirectPath = registeredUser.role === 'customer' ? '/portal/customer' : 
+                           registeredUser.role === 'retailer' ? '/portal/retailer' : 
+                           registeredUser.role === 'ngo' ? '/portal/ngo' : '/portal';
       router.push(redirectPath);
     }
     
     setLocalLoading(false);
   };
-
-  // Do not render the registration form if already loading or user is logged in
-  if (loading || user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/10 flex items-center justify-center p-4">

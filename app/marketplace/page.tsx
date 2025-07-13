@@ -301,7 +301,7 @@ export default function Marketplace() {
             <CardTitle>Item Locations</CardTitle>
           </CardHeader>
           <CardContent>
-            <LoadScript googleMapsApiKey="YOUR_GOOGLE_MAPS_API_KEY">
+            <LoadScript googleMapsApiKey={`${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}>
               <GoogleMap
                 mapContainerStyle={mapContainerStyle}
                 center={defaultCenter}
